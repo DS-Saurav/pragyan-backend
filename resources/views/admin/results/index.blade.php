@@ -13,9 +13,9 @@
     <div class="py-6 max-w-7xl mx-auto sm:px-6 lg:px-8">
 
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
-            <h2 class="text-xl font-bold text-gray-900">🏆 Class Results</h2>
+            <h2 class="text-xl font-bold text-gray-900"><i class="bi bi-trophy"></i> Class Results</h2>
             <a href="{{ route('admin.marks.index', array_filter(['exam_id' => $exam?->id, 'class_id' => $class?->id])) }}"
-                class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg">📝 Marks Entry</a>
+                class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg"><i class="bi bi-pencil-square"></i> Marks Entry</a>
         </div>
 
         <form method="GET" action="{{ route('admin.results.index') }}"
@@ -75,10 +75,10 @@
             <div class="bg-white shadow-sm sm:rounded-xl p-6 border border-gray-100">
                 <div class="flex flex-wrap gap-2 mb-4">
                     <a target="_blank" href="{{ route('admin.results.ledger', [$exam, $class]) }}"
-                        class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg">🖨️ Print
+                        class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg"><i class="bi bi-printer"></i> Print
                         Result Ledger</a>
                     <a target="_blank" href="{{ route('admin.results.marksheets', [$exam, $class]) }}"
-                        class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">📄
+                        class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg"><i class="bi bi-filetype-pdf"></i>
                         Print All Marksheets</a>
                 </div>
 
@@ -119,7 +119,7 @@
                                     @endforeach
                                     <td class="px-3 py-3 text-center font-bold">{{ $n($row['total']) }}</td>
                                     <td class="px-3 py-3 text-center">{{ number_format($row['percent'], 1) }}</td>
-                                    <td class="px-3 py-3 text-center">{{ number_format($row['gpa'], 2) }}</td>
+                                    <td class="px-3 py-3 text-center">{{ number_format($row['gpa'], 2) }}@if (($row['gpa_basis'] ?? 'unweighted') !== 'credit_hour')<span class="block text-[10px] text-gray-400">unweighted basis</span>@endif</td>
                                     <td class="px-3 py-3 text-center font-bold">{{ $row['rank'] ?? '—' }}</td>
                                     <td class="px-3 py-3">
                                         <span
@@ -132,7 +132,7 @@
                                     <td class="px-3 py-3 text-right">
                                         <a target="_blank"
                                             href="{{ route('admin.results.marksheet', [$exam, $row['student']]) }}"
-                                            class="text-indigo-600 font-bold hover:underline">📄 View</a>
+                                            class="text-indigo-600 font-bold hover:underline"><i class="bi bi-filetype-pdf"></i> View</a>
                                     </td>
                                 </tr>
                             @empty

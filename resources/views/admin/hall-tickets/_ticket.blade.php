@@ -7,7 +7,7 @@
             @if ($school['logo'])
                 <img src="{{ $school['logo'] }}" alt="">
             @else
-                🏫
+                <i class="bi bi-building"></i>
             @endif
         </div>
         <div class="school">

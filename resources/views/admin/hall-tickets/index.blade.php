@@ -55,7 +55,7 @@
         @if (!$exam)
             {{-- ================= Empty state ================= --}}
             <div class="no-print bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-                <div class="text-4xl mb-2">🎫</div>
+                <div class="text-4xl mb-2"><i class="bi bi-ticket-perforated"></i></div>
                 <p class="text-sm font-semibold text-slate-800">Select an exam to generate hall tickets</p>
                 <p class="text-xs text-gray-500 mt-1 max-w-md mx-auto">
                     Each ticket shows the student's details, the subject-wise exam schedule, instructions and

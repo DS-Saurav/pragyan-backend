@@ -29,28 +29,28 @@
                     <p class="text-2xl font-bold">{{ $counts['all'] ?? 0 }}</p>
                     <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mt-1">Total Teachers</p>
                 </div>
-                <div class="p-3 bg-slate-800 rounded-lg text-lg">👨‍🏫</div>
+                <div class="p-3 bg-slate-800 rounded-lg text-lg"><i class="bi bi-person-workspace"></i></div>
             </div>
             <div class="bg-emerald-600 text-white p-5 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
                     <p class="text-2xl font-bold">{{ $counts['active'] ?? 0 }}</p>
                     <p class="text-xs uppercase tracking-wider text-emerald-100 font-semibold mt-1">Active</p>
                 </div>
-                <div class="p-3 bg-emerald-700 rounded-lg text-lg">✅</div>
+                <div class="p-3 bg-emerald-700 rounded-lg text-lg"><i class="bi bi-check2-circle"></i></div>
             </div>
             <div class="bg-sky-600 text-white p-5 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
                     <p class="text-2xl font-bold">{{ $counts['assignments'] ?? 0 }}</p>
                     <p class="text-xs uppercase tracking-wider text-sky-100 font-semibold mt-1">Total Assignments</p>
                 </div>
-                <div class="p-3 bg-sky-700 rounded-lg text-lg">📚</div>
+                <div class="p-3 bg-sky-700 rounded-lg text-lg"><i class="bi bi-book"></i></div>
             </div>
             <div class="bg-amber-600 text-white p-5 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
                     <p class="text-2xl font-bold">{{ $counts['inactive'] ?? 0 }}</p>
                     <p class="text-xs uppercase tracking-wider text-amber-100 font-semibold mt-1">Inactive</p>
                 </div>
-                <div class="p-3 bg-amber-700 rounded-lg text-lg">❌</div>
+                <div class="p-3 bg-amber-700 rounded-lg text-lg"><i class="bi bi-x-circle"></i></div>
             </div>
         </div>
 
@@ -80,7 +80,7 @@
             <!-- Header Row -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">👨‍🏫 Teachers Management</h3>
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="bi bi-person-workspace"></i> Teachers Management</h3>
                     <p class="text-xs text-gray-500">Manage faculty members, specializations, class teacher duties, and
                         course assignments.</p>
                 </div>
@@ -95,11 +95,11 @@
                 <div class="flex items-center gap-2">
                     <a href="{{ route('admin.teachers.csv') }}"
                         class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow transition flex items-center gap-1">
-                        📂 CSV
+                        <i class="bi bi-folder2-open"></i> CSV
                     </a>
                     <button type="button" onclick="window.print()"
                         class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow transition flex items-center gap-1">
-                        🖨️ PRINT
+                        <i class="bi bi-printer"></i> PRINT
                     </button>
                 </div>
 
@@ -207,7 +207,7 @@
                                             'class_teacher_of' => $teacher->class_teacher_of,
                                             'status' => $teacher->status,
                                         ]) }}">
-                                        ✏️
+                                        <i class="bi bi-pencil"></i>
                                     </button>
                                 </td>
                             </tr>
@@ -474,7 +474,7 @@
                             '" method="POST" class="inline" onsubmit="return confirm(\'Remove this assignment?\');">' +
                             '<input type="hidden" name="_token" value="' + esc(CSRF) + '">' +
                             '<input type="hidden" name="_method" value="DELETE">' +
-                            '<button type="submit" class="text-rose-600 hover:text-rose-800 font-bold" title="Delete">🗑️</button>' +
+                                    '<button type="submit" class="text-rose-600 hover:text-rose-800 font-bold" title="Delete" aria-label="Delete"><i class="bi bi-trash"></i></button>' +
                             '</form>' +
                             '</td>';
                         tbody.appendChild(tr);

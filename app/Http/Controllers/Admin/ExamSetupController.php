@@ -8,6 +8,7 @@ use App\Models\ExamSubject;
 use App\Models\SchoolClass;
 use App\Models\Subject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class ExamSetupController extends Controller
 {
@@ -23,7 +24,8 @@ class ExamSetupController extends Controller
 
         $available = Subject::whereNotIn('id', $rows->pluck('subject_id'))->orderBy('name')->get();
 
-        return view('admin.exams.setup', compact('exam', 'classes', 'class', 'rows', 'available'));
+        return view('admin.exams.setup', compact('exam', 'classes', 'class', 'rows', 'available')
+            + ['creditHoursReady' => $this->creditHoursReady()]);
     }
 
     /** Create rows for every subject assigned to the class (falls back to all subjects). */
@@ -91,7 +93,30 @@ class ExamSetupController extends Controller
             'rows.*.theory_pass' => 'required|numeric|min:0|max:1000',
             'rows.*.practical_full' => 'nullable|numeric|min:0|max:1000',
             'rows.*.practical_pass' => 'nullable|numeric|min:0|max:1000',
+            // Credit hours (CDC dafa 1(घ)) must be finite and strictly
+            // positive, at most two decimals, fitting decimal(5,2).
+            // Blank (null) means "unset" - never a confirmed zero.
+            // Array syntax because the regex itself contains a pipe.
+            'rows.*.credit_hours' => [
+                'nullable', 'numeric', 'min:0.01', 'max:99.99',
+                'regex:/^\d{1,2}\.\d{1,2}$|^\d{1,2}$/',
+            ],
         ]);
+
+        $creditHoursReady = $this->creditHoursReady();
+
+        // Only when an administrator actually entered a credit hour: refuse
+        // to save at all if the column does not exist yet. Silently
+        // claiming success while discarding the input is forbidden.
+        if (! $creditHoursReady) {
+            foreach ($data['rows'] as $row) {
+                if (array_key_exists('credit_hours', $row) && $row['credit_hours'] !== null) {
+                    return back()->withErrors(
+                        ['rows' => 'Credit hours cannot be saved yet: the pending exam_subjects.credit_hours migration is not applied. Nothing was saved - apply the migration first, then submit the setup again.']
+                    );
+                }
+            }
+        }
 
         foreach ($data['rows'] as $id => $row) {
             $es = ExamSubject::with('subject')->where('exam_id', $exam->id)->find($id);
@@ -112,7 +137,7 @@ class ExamSetupController extends Controller
                 return back()->withErrors(['rows' => 'End time must be after start time ('.($es->subject->name ?? '').').']);
             }
 
-            $es->update([
+            $update = [
                 'exam_date' => $row['exam_date'] ?? null,
                 'start_time' => $row['start_time'] ?? null,
                 'end_time' => $row['end_time'] ?? null,
@@ -120,7 +145,15 @@ class ExamSetupController extends Controller
                 'theory_pass' => $tp,
                 'practical_full' => $pf,
                 'practical_pass' => $pp,
-            ]);
+            ];
+
+            if ($creditHoursReady) {
+                // Blank input (null) = unset/clear; a value was validated
+                // as finite and strictly positive above.
+                $update['credit_hours'] = $row['credit_hours'] ?? null;
+            }
+
+            $es->update($update);
         }
 
         return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $data['class_id']])
@@ -143,6 +176,12 @@ class ExamSetupController extends Controller
         $source = ExamSubject::where('exam_id', $exam->id)->where('school_class_id', $data['class_id'])->get();
         $created = 0;
 
+        // Credit hours copy only when the authoritative column exists.
+        $copyFields = ['exam_date', 'start_time', 'end_time', 'theory_full', 'theory_pass', 'practical_full', 'practical_pass'];
+        if ($this->creditHoursReady()) {
+            $copyFields[] = 'credit_hours';
+        }
+
         foreach ($data['target_ids'] as $targetId) {
             if ((int) $targetId === (int) $data['class_id']) {
                 continue;
@@ -150,7 +189,7 @@ class ExamSetupController extends Controller
             foreach ($source as $row) {
                 $es = ExamSubject::firstOrCreate(
                     ['exam_id' => $exam->id, 'school_class_id' => $targetId, 'subject_id' => $row->subject_id],
-                    $row->only(['exam_date', 'start_time', 'end_time', 'theory_full', 'theory_pass', 'practical_full', 'practical_pass'])
+                    $row->only($copyFields)
                 );
                 $created += $es->wasRecentlyCreated ? 1 : 0;
             }
@@ -175,15 +214,33 @@ class ExamSetupController extends Controller
 
     private function firstOrCreateRow(Exam $exam, int $classId, Subject $s): ExamSubject
     {
+        $defaults = [
+            'theory_full' => $s->max_marks ?: 100,
+            'theory_pass' => $s->passing_marks ?: 35,
+            'practical_full' => 0,
+            'practical_pass' => 0,
+        ];
+
+        // New rows start with an UNSET credit hour (never 0) when the
+        // authoritative column exists.
+        if ($this->creditHoursReady()) {
+            $defaults['credit_hours'] = null;
+        }
+
         return ExamSubject::firstOrCreate(
             ['exam_id' => $exam->id, 'school_class_id' => $classId, 'subject_id' => $s->id],
-            [
-                'theory_full' => $s->max_marks ?: 100,
-                'theory_pass' => $s->passing_marks ?: 35,
-                'practical_full' => 0,
-                'practical_pass' => 0,
-            ]
+            $defaults
         );
+    }
+
+    /**
+     * True when the authoritative credit-hours column exists. The pending
+     * exam_subjects migration adds it; until then every save/entry path
+     * degrades safely instead of discarding input silently.
+     */
+    private function creditHoursReady(): bool
+    {
+        return Schema::hasColumn('exam_subjects', 'credit_hours');
     }
 
     private function blockIfPublished(Exam $exam)

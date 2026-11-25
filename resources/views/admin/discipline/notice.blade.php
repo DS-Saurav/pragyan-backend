@@ -132,7 +132,7 @@
 </head>
 
 <body>
-    <div class="toolbar"><button onclick="window.print()">🖨️ Print notice</button></div>
+    <div class="toolbar"><button onclick="window.print()"><i class="bi bi-printer"></i> Print notice</button></div>
 
     <div class="page">
         <div class="head">

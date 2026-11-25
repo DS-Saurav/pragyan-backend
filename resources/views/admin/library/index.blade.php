@@ -44,7 +44,7 @@
         {{-- Page header --}}
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-5">
             <h3 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">📚</span> Library — Books Catalog
+                <span class="text-xl"><i class="bi bi-book"></i></span> Library — Books Catalog
             </h3>
             <div class="flex items-center gap-2">
                 <a href="{{ route('admin.library.books.index', ['view' => $viewMode === 'shelf' ? 'table' : 'shelf']) }}"
@@ -61,12 +61,12 @@
         {{-- Metric cards --}}
         @php
             $cards = [
-                ['titles', 'Titles', 'from-slate-900 to-[#0b1230]', '📖'],
-                ['total_copies', 'Total Copies', 'from-sky-500 to-sky-700', '🔖'],
-                ['available', 'Available', 'from-emerald-500 to-green-700', '✅'],
-                ['issued', 'Issued Out', 'from-amber-500 to-orange-600', '📤'],
-                ['overdue', 'Overdue', 'from-rose-500 to-red-700', '⚠️'],
-                ['fines', 'Fines Collected', 'from-violet-500 to-purple-700', '🪙'],
+                ['titles', 'Titles', 'from-slate-900 to-[#0b1230]', 'bi-book'],
+                ['total_copies', 'Total Copies', 'from-sky-500 to-sky-700', 'bi-bookmark'],
+                ['available', 'Available', 'from-emerald-500 to-green-700', 'bi-check2-circle'],
+                ['issued', 'Issued Out', 'from-amber-500 to-orange-600', 'bi-box-arrow-up'],
+                ['overdue', 'Overdue', 'from-rose-500 to-red-700', 'bi-exclamation-triangle'],
+                ['fines', 'Fines Collected', 'from-violet-500 to-purple-700', 'bi-coin'],
             ];
         @endphp
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
@@ -74,7 +74,7 @@
                 <div
                     class="bg-gradient-to-br {{ $grad }} text-white p-4 rounded-xl shadow-sm flex items-center gap-3">
                     <div class="w-11 h-11 rounded-lg bg-white/15 flex items-center justify-center text-xl shrink-0">
-                        {{ $icon }}</div>
+                        <i class="bi {{ $icon }}"></i></div>
                     <div>
                         <p class="text-2xl font-extrabold leading-none">
                             {{ $key === 'fines' ? '₹' : '' }}{{ $stats[$key] ?? 0 }}</p>
@@ -90,7 +90,7 @@
             <div
                 class="mb-5 bg-white border-l-4 border-red-500 rounded-xl shadow-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <p class="text-sm text-slate-800 flex items-center gap-2">
-                    <span class="text-red-500">⚠</span>
+                    <span class="text-red-500"><i class="bi bi-exclamation-triangle"></i></span>
                     <span><b>{{ $stats['overdue'] }} book(s) overdue</b> — fine accruing so far:
                         <b class="text-red-600">₹{{ $overdueFine ?? 0 }}</b> (at ₹{{ $finePerDay }}/day).</span>
                 </p>
@@ -109,13 +109,13 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4 no-print">
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" onclick="exportCsv()"
-                            class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md">📄
+                            class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md"><i class="bi bi-filetype-pdf"></i>
                             CSV</button>
                         <button type="button" onclick="exportPdf()"
-                            class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md">📕
+                            class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md"><i class="bi bi-book"></i>
                             PDF</button>
                         <button type="button" onclick="window.print()"
-                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md">🖨
+                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md"><i class="bi bi-printer"></i>
                             PRINT</button>
                         <span class="text-xs text-gray-500 ml-2">Show</span>
                         <select id="pageLen" class="text-xs border border-gray-300 rounded-md py-1.5 pl-2 pr-6">
@@ -156,7 +156,7 @@
                                             @else
                                                 <div
                                                     class="w-7 h-10 rounded bg-gradient-to-br {{ $gradients[$book->id % count($gradients)] }} flex items-center justify-center text-[10px]">
-                                                    📘</div>
+                                                    <i class="bi bi-book"></i></div>
                                             @endif
                                             <span class="font-bold text-slate-900">{{ $book->title }}</span>
                                         </div>
@@ -179,17 +179,17 @@
                                             @if ($book->available_copies > 0)
                                                 <button type="button" title="Issue"
                                                     class="text-emerald-600 hover:text-emerald-800"
-                                                    onclick="openIssueModal({{ $book->id }})">➤</button>
+                                                    onclick="openIssueModal({{ $book->id }})"><i class="bi bi-arrow-right"></i></button>
                                             @endif
                                             <button type="button" title="Edit"
                                                 class="text-amber-500 hover:text-amber-700"
                                                 data-book="{{ json_encode($book) }}"
-                                                onclick="openEditBookModal(this)">✎</button>
+                                                onclick="openEditBookModal(this)"><i class="bi bi-pencil"></i></button>
                                             <form action="{{ route('admin.library.books.destroy', $book->id) }}"
                                                 method="POST" onsubmit="return confirm('Delete this book?');">
                                                 @csrf @method('DELETE')
                                                 <button type="submit" title="Delete"
-                                                    class="text-rose-500 hover:text-rose-700">🗑</button>
+                                                    class="text-rose-500 hover:text-rose-700"><i class="bi bi-trash"></i></button>
                                             </form>
                                         </div>
                                     </td>
@@ -215,7 +215,7 @@
                                 <img src="{{ asset('storage/' . $book->cover_image) }}" alt="{{ $book->title }}"
                                     class="absolute inset-0 w-full h-full object-cover">
                             @else
-                                <div class="absolute inset-0 flex items-center justify-center text-5xl opacity-60">📘</div>
+                                <div class="absolute inset-0 flex items-center justify-center text-5xl opacity-60"><i class="bi bi-book"></i></div>
                             @endif
                             <div
                                 class="absolute inset-x-0 bottom-0 p-3 pt-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
@@ -235,12 +235,12 @@
                             <div class="flex gap-1.5 mt-auto pt-1">
                                 @if ($book->available_copies > 0)
                                     <button type="button" onclick="openIssueModal({{ $book->id }})"
-                                        class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-md">➤
+                                        class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-md"><i class="bi bi-arrow-right"></i>
                                         Issue</button>
                                 @endif
                                 <button type="button" data-book="{{ json_encode($book) }}"
                                     onclick="openEditBookModal(this)"
-                                    class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-md">✎
+                                    class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-md"><i class="bi bi-pencil"></i>
                                     Edit</button>
                             </div>
                         </div>
@@ -263,36 +263,42 @@
             <form action="{{ route('admin.library.books.store') }}" method="POST" enctype="multipart/form-data"
                 class="p-5 space-y-3">
                 @csrf
+                <input type="hidden" name="_mode" value="add">
                 <div>
                     <label class="{{ $labelCls }}">Book Title</label>
-                    <input type="text" name="title" required class="{{ $inputCls }}">
+                    <input type="text" name="title" required maxlength="255" value="{{ old('_mode') === 'add' ? old('title') : '' }}"
+                        class="{{ $inputCls }}">
                 </div>
                 <div>
                     <label class="{{ $labelCls }}">Author Name</label>
-                    <input type="text" name="author" required class="{{ $inputCls }}">
+                    <input type="text" name="author" required maxlength="255" value="{{ old('_mode') === 'add' ? old('author') : '' }}"
+                        class="{{ $inputCls }}">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="{{ $labelCls }}">Category</label>
-                        <input type="text" name="category" required placeholder="e.g. Mathematics"
-                            class="{{ $inputCls }}">
+                        <input type="text" name="category" required maxlength="100" placeholder="e.g. Mathematics"
+                            value="{{ old('_mode') === 'add' ? old('category') : '' }}" class="{{ $inputCls }}">
                     </div>
                     <div>
                         <label class="{{ $labelCls }}">Shelf Location</label>
-                        <input type="text" name="shelf" required placeholder="e.g. R-2"
-                            class="{{ $inputCls }}">
+                        <input type="text" name="shelf" required maxlength="50" placeholder="e.g. R-2"
+                            value="{{ old('_mode') === 'add' ? old('shelf') : '' }}" class="{{ $inputCls }}">
                     </div>
                 </div>
                 <div>
                     <label class="{{ $labelCls }}">Total Copies</label>
-                    <input type="number" name="total_copies" value="5" min="1" required
-                        class="{{ $inputCls }}">
+                    <input type="number" name="total_copies" value="{{ old('_mode') === 'add' ? old('total_copies', 5) : 5 }}"
+                        min="1" required class="{{ $inputCls }}">
                 </div>
                 <div>
                     <label class="{{ $labelCls }}">Cover Image <span
                             class="text-gray-400 normal-case font-normal">(optional)</span></label>
                     <input type="file" name="cover_image" accept="image/*"
                         class="w-full text-xs border border-gray-300 rounded-lg p-2 file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-gray-100 file:text-xs file:font-bold">
+                    @error('cover_image')
+                        <p class="mt-1 text-[11px] font-bold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeModal('addBookModal')"
@@ -315,22 +321,24 @@
             </div>
             <form id="editBookForm" method="POST" enctype="multipart/form-data" class="p-5 space-y-3">
                 @csrf @method('PUT')
+                <input type="hidden" name="_mode" id="edit_mode" value="">
+                <input type="hidden" name="_edit_id" id="edit_edit_id" value="">
                 <div>
                     <label class="{{ $labelCls }}">Book Title</label>
-                    <input type="text" name="title" id="edit_title" required class="{{ $inputCls }}">
+                    <input type="text" name="title" id="edit_title" required maxlength="255" class="{{ $inputCls }}">
                 </div>
                 <div>
                     <label class="{{ $labelCls }}">Author Name</label>
-                    <input type="text" name="author" id="edit_author" required class="{{ $inputCls }}">
+                    <input type="text" name="author" id="edit_author" required maxlength="255" class="{{ $inputCls }}">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="{{ $labelCls }}">Category</label>
-                        <input type="text" name="category" id="edit_category" required class="{{ $inputCls }}">
+                        <input type="text" name="category" id="edit_category" required maxlength="100" class="{{ $inputCls }}">
                     </div>
                     <div>
                         <label class="{{ $labelCls }}">Shelf Location</label>
-                        <input type="text" name="shelf" id="edit_shelf" required class="{{ $inputCls }}">
+                        <input type="text" name="shelf" id="edit_shelf" required maxlength="50" class="{{ $inputCls }}">
                     </div>
                 </div>
                 <div>
@@ -343,6 +351,9 @@
                             class="text-gray-400 normal-case font-normal">(optional)</span></label>
                     <input type="file" name="cover_image" accept="image/*"
                         class="w-full text-xs border border-gray-300 rounded-lg p-2 file:mr-3 file:px-3 file:py-1 file:rounded-md file:border-0 file:bg-gray-100 file:text-xs file:font-bold">
+                    @error('cover_image')
+                        <p class="mt-1 text-[11px] font-bold text-rose-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closeModal('editBookModal')"
@@ -359,7 +370,7 @@
         class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 pt-16">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
             <div class="bg-[#0f1b4c] text-white px-5 py-3 flex justify-between items-center">
-                <h3 class="text-sm font-bold flex items-center gap-2">➤ Issue Book</h3>
+                <h3 class="text-sm font-bold flex items-center gap-2"><i class="bi bi-arrow-right"></i> Issue Book</h3>
                 <button type="button" onclick="closeModal('issueBookModal')"
                     class="text-xl leading-none">&times;</button>
             </div>
@@ -457,6 +468,8 @@
         function openEditBookModal(btn) {
             const book = JSON.parse(btn.dataset.book);
             document.getElementById('editBookForm').action = `/admin/library/books/${book.id}`;
+            document.getElementById('edit_mode').value = 'edit';
+            document.getElementById('edit_edit_id').value = book.id;
             ['title', 'author', 'category', 'shelf', 'total_copies'].forEach(function(f) {
                 document.getElementById('edit_' + f).value = book[f] ?? '';
             });
@@ -482,6 +495,27 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape')['addBookModal', 'editBookModal', 'issueBookModal'].forEach(closeModal);
         });
+
+        @if ($errors->any() && old('_mode') === 'add')
+            // Failed add: reopen the add modal; its fields keep old() values.
+            (function() {
+                openModal('addBookModal');
+            })();
+        @endif
+
+        @if ($errors->any() && old('_mode') === 'edit')
+            // Reopen the edit modal with the user's input if validation failed.
+            (function() {
+                document.getElementById('editBookForm').action =
+                    @js(route('admin.library.books.update', ['book' => old('_edit_id')]));
+                var O = @json(old());
+                ['title', 'author', 'category', 'shelf'].forEach(function(f) {
+                    document.getElementById('edit_' + f).value = O[f] !== undefined && O[f] !== null ? O[f] : '';
+                });
+                document.getElementById('edit_total_copies').value = O.total_copies || '';
+                openModal('editBookModal');
+            })();
+        @endif
 
         @if ($viewMode === 'table')
             // ---------- Table: search / page length / pagination ----------

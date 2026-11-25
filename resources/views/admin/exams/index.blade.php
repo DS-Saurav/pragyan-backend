@@ -43,7 +43,7 @@
         @endif
 
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-            <h2 class="text-xl font-bold text-gray-900">📋 Exams Management</h2>
+            <h2 class="text-xl font-bold text-gray-900"><i class="bi bi-clipboard"></i> Exams Management</h2>
             <button type="button" id="openCreateBtn"
                 class="no-print px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow">+
                 Create Exam</button>
@@ -59,15 +59,15 @@
         </div>
 
         <p class="no-print text-xs text-gray-500 mb-4">
-            Flow: <b>⚙️ Setup</b> subjects and marks → teachers enter <b>📝 Marks</b> (Save Draft → Submit → Lock) → admin
-            checks <b>🏆 Results</b> → admin <b>📢 Publishes</b>.
+            Flow: <b><i class="bi bi-gear"></i> Setup</b> subjects and marks → teachers enter <b><i class="bi bi-pencil-square"></i> Marks</b> (Save Draft → Submit → Lock) → admin
+            checks <b><i class="bi bi-trophy"></i> Results</b> → admin <b><i class="bi bi-megaphone"></i> Publishes</b>.
         </p>
 
         <div class="bg-white shadow-sm sm:rounded-xl p-6 border border-gray-100">
             <div class="no-print flex flex-col lg:flex-row justify-between gap-4 mb-5 border-b pb-4">
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="window.print()"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow">🖨️
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-printer"></i>
                         PRINT</button>
                 </div>
                 <form method="GET" action="{{ route('admin.exams.index') }}" class="flex flex-wrap items-center gap-2">
@@ -149,35 +149,35 @@
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap space-x-1 no-print">
                                     <a href="{{ route('admin.exams.setup', $exam) }}" class="p-1 hover:text-indigo-600"
-                                        title="Setup subjects & marks">⚙️</a>
+                                        title="Setup subjects & marks"><i class="bi bi-gear"></i></a>
                                     <a href="{{ route('admin.marks.index', ['exam_id' => $exam->id]) }}"
-                                        class="p-1 hover:text-indigo-600" title="Enter marks">📝</a>
+                                        class="p-1 hover:text-indigo-600" title="Enter marks"><i class="bi bi-pencil-square"></i></a>
                                     <a href="{{ route('admin.results.index', ['exam_id' => $exam->id]) }}"
-                                        class="p-1 hover:text-amber-600" title="View results">🏆</a>
+                                        class="p-1 hover:text-amber-600" title="View results"><i class="bi bi-trophy"></i></a>
 
                                     @if ($exam->status === 'published')
                                         <form action="{{ route('admin.exams.unpublish', $exam) }}" method="POST"
                                             class="inline" onsubmit="return confirm('Unpublish these results?');">
                                             @csrf <button type="submit" class="p-1 hover:text-rose-600"
-                                                title="Unpublish">↩️</button>
+                                                title="Unpublish">↩</button>
                                         </form>
                                     @else
                                         <form action="{{ route('admin.exams.publish', $exam) }}" method="POST"
                                             class="inline"
                                             onsubmit="return confirm('Publish results to students and parents?');">
                                             @csrf <button type="submit" class="p-1 hover:text-emerald-600"
-                                                title="Publish results">📢</button>
+                                                title="Publish results"><i class="bi bi-megaphone"></i></button>
                                         </form>
                                     @endif
 
                                     <button type="button" class="edit-exam-btn p-1 hover:text-indigo-600"
-                                        title="Edit">✏️</button>
+                                        title="Edit"><i class="bi bi-pencil"></i></button>
                                     @if ($exam->status !== 'published')
                                         <form action="{{ route('admin.exams.destroy', $exam) }}" method="POST"
                                             class="inline"
                                             onsubmit="return confirm('Delete this exam? Its setup and ALL marks will be deleted too.');">
                                             @csrf @method('DELETE') <button type="submit" class="p-1 hover:text-rose-600"
-                                                title="Delete">🗑️</button>
+                                                title="Delete"><i class="bi bi-trash"></i></button>
                                         </form>
                                     @endif
                                 </td>

@@ -185,6 +185,8 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                                     'dob' => $student->dob
                                         ? \Illuminate\Support\Carbon::parse($student->dob)->format('Y-m-d')
                                         : '',
+                                    // Plain B.S. string (e.g. "2069-01-15") - never a date object.
+                                    'dob_bs' => (string) ($student->dob_bs ?? ''),
                                     'languages_spoken' => $student->languages_spoken ?? '',
                                     'address' => $student->address ?? '',
                                     'class_applied' => $student->class_applied,
@@ -231,7 +233,7 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                                 </td>
                                 <td class="p-4">
                                     @if ($student->has_allergies)
-                                        <span class="text-rose-600 font-bold">⚠️ Allergy</span>
+                                        <span class="text-rose-600 font-bold"><i class="bi bi-exclamation-triangle"></i> Allergy</span>
                                     @else
                                         <span class="text-gray-400">—</span>
                                     @endif
@@ -241,27 +243,27 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                                         <button type="button"
                                             @click="activeModal = 'fee'; selectedStudent = {{ \Illuminate\Support\Js::from($fullName) }}"
                                             class="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100"
-                                            title="Fee Summary">💰</button>
+                                            title="Fee Summary"><i class="bi bi-cash-coin"></i></button>
                                         <button type="button"
                                             @click="activeModal = 'attendance'; selectedStudent = {{ \Illuminate\Support\Js::from($fullName) }}"
                                             class="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
-                                            title="Attendance">📅</button>
+                                            title="Attendance"><i class="bi bi-calendar3"></i></button>
                                         <button type="button"
                                             @click="activeModal = 'results'; selectedStudent = {{ \Illuminate\Support\Js::from($fullName) }}"
                                             class="p-1.5 bg-purple-50 text-purple-600 rounded hover:bg-purple-100"
-                                            title="Results">📊</button>
+                                            title="Results"><i class="bi bi-bar-chart"></i></button>
                                         <button type="button"
                                             @click="activeModal = 'parents'; selectedStudent = {{ \Illuminate\Support\Js::from($fullName) }}"
                                             class="p-1.5 bg-sky-50 text-sky-600 rounded hover:bg-sky-100"
-                                            title="Parents">👪</button>
+                                            title="Parents"><i class="bi bi-people"></i></button>
                                         <button type="button"
                                             @click="activeModal = 'idcard'; selectedStudent = {{ \Illuminate\Support\Js::from($fullName) }}"
                                             class="p-1.5 bg-amber-50 text-amber-600 rounded hover:bg-amber-100"
-                                            title="ID Card">🪪</button>
+                                            title="ID Card"><i class="bi bi-person-vcard"></i></button>
                                         <button type="button"
                                             @click="currentStudent = {{ \Illuminate\Support\Js::from($editData) }}; editModalOpen = true"
                                             class="p-1.5 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
-                                            title="Edit Student">✏️</button>
+                                            title="Edit Student"><i class="bi bi-pencil"></i></button>
                                         <form action="{{ route('admin.students.status', $student->id) }}" method="POST"
                                             class="inline">
                                             @csrf
@@ -282,7 +284,7 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                                             @method('DELETE')
                                             <button type="submit"
                                                 class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100"
-                                                title="Delete">🗑️</button>
+                                                title="Delete"><i class="bi bi-trash"></i></button>
                                         </form>
                                     </div>
                                 </td>
@@ -340,6 +342,11 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                         <div>
                             <label class="block font-bold text-gray-700 uppercase mb-1">Date of Birth *</label>
                             <input type="date" name="dob" required
+                                class="w-full border-gray-300 rounded-lg text-xs">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Date of Birth (B.S.)</label>
+                            <input type="text" name="dob_bs" placeholder="e.g. 2069-01-15 (B.S.)"
                                 class="w-full border-gray-300 rounded-lg text-xs">
                         </div>
                         <div>
@@ -485,6 +492,11 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                                 class="w-full border-gray-300 rounded-lg text-xs">
                         </div>
                         <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Date of Birth (B.S.)</label>
+                            <input type="text" name="dob_bs" x-model="currentStudent.dob_bs"
+                                placeholder="e.g. 2069-01-15 (B.S.)" class="w-full border-gray-300 rounded-lg text-xs">
+                        </div>
+                        <div>
                             <label class="block font-bold text-gray-700 uppercase mb-1">Languages Spoken</label>
                             <input type="text" name="languages_spoken" x-model="currentStudent.languages_spoken"
                                 placeholder="e.g. English, Nepali" class="w-full border-gray-300 rounded-lg text-xs">
@@ -588,6 +600,55 @@ $defaultAcademicYear = function_exists('current_academic_year') ? current_academ
                             class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold">Cancel</button>
                         <button type="submit"
                             class="px-5 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">Update Student</button>
+                    </div>
+                </form>
+
+                <!-- Health measurements for a chosen academic year (Stage P3G).
+                     Submitting here does NOT submit the student-edit form above
+                     (invalid input only aborts the measurement save). Blank
+                     fields mean "leave unset" - never zero. -->
+                <form action="" method="POST"
+                    x-bind:action="'{{ url('admin/students') }}/' + currentStudent.id + '/measurements'"
+                    class="p-6 pt-0 max-h-[80vh] overflow-y-auto border-t border-dashed border-gray-200">
+                    @csrf
+                    <h4
+                        class="text-xs font-bold text-gray-400 uppercase tracking-wider pt-4 pb-2">
+                        Health Measurements (per academic year)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs items-end">
+                        <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Academic Year *</label>
+                            <select name="academic_year" required class="w-full border-gray-300 rounded-lg text-xs"
+                                x-model="currentStudent.academic_year">
+                                @foreach ($academicYears as $measurementYear)
+                                    <option value="{{ $measurementYear }}">{{ $measurementYear }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Height (cm)</label>
+                            <input type="number" name="height_cm" step="0.1" min="0"
+                                placeholder="leave blank = unset"
+                                class="w-full border-gray-300 rounded-lg text-xs">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Weight (kg)</label>
+                            <input type="number" name="weight_kg" step="0.1" min="0"
+                                placeholder="leave blank = unset"
+                                class="w-full border-gray-300 rounded-lg text-xs">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-700 uppercase mb-1">Measured On</label>
+                            <input type="date" name="measured_on" class="w-full border-gray-300 rounded-lg text-xs">
+                        </div>
+                    </div>
+                    @if ($errors->measurements->any())
+                        <p class="text-[11px] text-rose-600 mt-2 bg-rose-50 rounded-lg px-3 py-2 inline-block">
+                            {{ $errors->measurements->first() }}</p>
+                    @endif
+                    <div class="flex justify-end pt-3">
+                        <button type="submit"
+                            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">Save
+                            Measurements</button>
                     </div>
                 </form>
             </div>

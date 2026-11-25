@@ -1,228 +1,223 @@
 @extends('layouts.admin')
 
+@section('title', 'Admissions')
+
 @section('content')
-    {{-- openModal starts true when the last submit failed validation, so the errors are actually visible --}}
-    <div x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }" @keydown.escape.window="openModal = false" class="space-y-6">
+    <div class="ui-page" x-data="{ openModal: {{ $errors->any() ? 'true' : 'false' }} }"
+        @keydown.escape.window="openModal = false">
+        <x-ui.page-header title="Admissions"
+            subtitle="Review new applications and admit or reject applicants.">
+            <x-slot name="actions">
+                <button type="button" @click="openModal = true" class="ui-btn ui-btn-primary">
+                    <i class="bi bi-person-plus"></i> New registration
+                </button>
+            </x-slot>
+        </x-ui.page-header>
 
-        <!-- Page Header & New Registration Button -->
-        <div class="flex justify-between items-center">
-            <div>
-                <h2 class="text-xl font-bold text-gray-800">Admissions Management</h2>
-            </div>
-            <button type="button" @click="openModal = true"
-                class="px-4 py-2 bg-emerald-600 text-white font-semibold text-sm rounded-lg hover:bg-emerald-700 transition shadow-sm flex items-center space-x-1">
-                <span>+ New Registration</span>
-            </button>
-        </div>
-
-        <!-- Success / Error Messages -->
-        @if (session('success'))
-            <div class="p-4 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-                {{ session('success') }}
-            </div>
-        @endif
-
-        @if (session('error'))
-            <div class="p-4 bg-rose-100 text-rose-700 rounded-lg text-sm font-medium">
-                {{ session('error') }}
-            </div>
-        @endif
-
-        <!-- Status Filter Tabs -->
-        <div class="bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex space-x-2">
+        <div class="ui-tabs">
             <a href="{{ route('admin.admissions.index') }}"
-                class="flex-1 text-center py-2.5 rounded-lg text-sm font-bold {{ request('status') == '' ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-                ALL ({{ $counts['all'] ?? 0 }})
+                @class(['ui-tab', 'ui-tab-active' => ! request('status')])>
+                <i class="bi bi-grid"></i> All
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{{ $counts['all'] ?? 0 }}</span>
             </a>
             <a href="{{ route('admin.admissions.index', ['status' => 'registered']) }}"
-                class="flex-1 text-center py-2.5 rounded-lg text-sm font-bold {{ request('status') == 'registered' ? 'bg-sky-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-                REGISTERED ({{ $counts['registered'] ?? 0 }})
+                @class(['ui-tab', 'ui-tab-active' => request('status') === 'registered'])>
+                <i class="bi bi-hourglass-split"></i> Registered
+                <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">{{ $counts['registered'] ?? 0 }}</span>
             </a>
             <a href="{{ route('admin.admissions.index', ['status' => 'admitted']) }}"
-                class="flex-1 text-center py-2.5 rounded-lg text-sm font-bold {{ request('status') == 'admitted' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-                ADMITTED ({{ $counts['admitted'] ?? 0 }})
+                @class(['ui-tab', 'ui-tab-active' => request('status') === 'admitted'])>
+                <i class="bi bi-check2-circle"></i> Admitted
+                <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{{ $counts['admitted'] ?? 0 }}</span>
             </a>
             <a href="{{ route('admin.admissions.index', ['status' => 'rejected']) }}"
-                class="flex-1 text-center py-2.5 rounded-lg text-sm font-bold {{ request('status') == 'rejected' ? 'bg-rose-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
-                REJECTED ({{ $counts['rejected'] ?? 0 }})
+                @class(['ui-tab', 'ui-tab-active' => request('status') === 'rejected'])>
+                <i class="bi bi-x-circle"></i> Rejected
+                <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">{{ $counts['rejected'] ?? 0 }}</span>
             </a>
         </div>
 
-        <!-- Data Table Card -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <section class="ui-card overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
+                <table class="ui-table">
                     <thead>
-                        <tr class="bg-slate-900 text-white uppercase text-xs tracking-wider">
-                            <th class="p-4">Reg #</th>
-                            <th class="p-4">Applicant</th>
-                            <th class="p-4">Gender</th>
-                            <th class="p-4">DOB</th>
-                            <th class="p-4">Class Applied</th>
-                            <th class="p-4">Academic Year</th>
-                            <th class="p-4">Parent / Guardian</th>
-                            <th class="p-4">Status</th>
-                            <th class="p-4 text-right">Actions</th>
+                        <tr>
+                            <th>Reg #</th>
+                            <th>Applicant</th>
+                            <th>Gender</th>
+                            <th>DOB</th>
+                            <th>Class applied</th>
+                            <th>Academic year</th>
+                            <th>Parent / Guardian</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        @forelse($admissions as $admission)
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="p-4 font-bold text-gray-700">{{ $admission->reg_number }}</td>
-                                <td class="p-4 font-semibold text-gray-900">{{ $admission->first_name }}
-                                    {{ $admission->last_name }}</td>
-                                <td class="p-4 text-gray-600">{{ $admission->gender }}</td>
-                                <td class="p-4 text-gray-600">
+                    <tbody>
+                        @forelse ($admissions as $admission)
+                            <tr>
+                                <td class="whitespace-nowrap font-mono text-xs font-semibold text-slate-600">
+                                    {{ $admission->reg_number }}
+                                </td>
+                                <td class="font-semibold text-slate-900">
+                                    {{ $admission->first_name }} {{ $admission->last_name }}
+                                </td>
+                                <td>{{ $admission->gender }}</td>
+                                <td class="whitespace-nowrap">
                                     {{ $admission->dob ? \Illuminate\Support\Carbon::parse($admission->dob)->format('Y-m-d') : '—' }}
                                 </td>
-                                <td class="p-4 text-gray-600">{{ $admission->class_applied }}</td>
-                                <td class="p-4 text-gray-600">{{ $admission->academic_year }}</td>
-                                <td class="p-4 text-gray-600">
-                                    {{ $admission->parent_name }}<br>
-                                    <span class="text-xs text-gray-400">{{ $admission->mobile }}</span>
+                                <td>{{ $admission->class_applied }}</td>
+                                <td class="whitespace-nowrap">{{ $admission->academic_year }}</td>
+                                <td>
+                                    <p class="font-medium text-slate-800">{{ $admission->parent_name }}</p>
+                                    <p class="text-xs text-slate-500">{{ $admission->mobile }}</p>
                                 </td>
-                                <td class="p-4">
-                                    @if ($admission->status == 'registered')
-                                        <span
-                                            class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full text-xs font-bold">REGISTERED</span>
-                                    @elseif($admission->status == 'admitted')
-                                        <span
-                                            class="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">ADMITTED</span>
-                                    @else
-                                        <span
-                                            class="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold cursor-help"
-                                            title="{{ $admission->rejection_reason }}">REJECTED</span>
-                                    @endif
+                                <td>
+                                    @php
+                                        $tone = match ($admission->status) {
+                                            'admitted' => 'success',
+                                            'rejected' => 'danger',
+                                            default => 'info',
+                                        };
+                                    @endphp
+                                    <x-ui.badge :tone="$tone" :title="$admission->rejection_reason">{{ $admission->status }}</x-ui.badge>
                                 </td>
-                                <td class="p-4 text-right">
-                                    <div class="inline-flex items-center space-x-1">
-                                        <!-- Quick status toggles -->
-                                        <form action="{{ route('admin.admissions.status', $admission->id) }}"
-                                            method="POST" class="inline">
+                                <td class="text-right">
+                                    <div class="inline-flex items-center gap-1">
+                                        <form action="{{ route('admin.admissions.status', $admission->id) }}" method="POST"
+                                            class="inline">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="status" value="admitted">
-                                            <button type="submit"
-                                                class="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 text-xs"
-                                                title="Admit">✅</button>
+                                            <button type="submit" aria-label="Admit {{ $admission->first_name }}"
+                                                title="Admit"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600">
+                                                <i class="bi bi-check2-circle"></i>
+                                            </button>
                                         </form>
-                                        <form action="{{ route('admin.admissions.status', $admission->id) }}"
-                                            method="POST" class="inline"
-                                            onsubmit="return confirm('Reject this applicant?');">
+                                        <form action="{{ route('admin.admissions.status', $admission->id) }}" method="POST"
+                                            class="inline" onsubmit="return confirm('Reject this applicant?');">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="status" value="rejected">
                                             <input type="hidden" name="rejection_reason" value="Did not meet criteria.">
-                                            <button type="submit"
-                                                class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100 text-xs"
-                                                title="Reject">❌</button>
+                                            <button type="submit" aria-label="Reject {{ $admission->first_name }}"
+                                                title="Reject"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="p-8 text-center text-gray-400">No registration records found.</td>
+                                <td colspan="9" class="px-4 py-10">
+                                    <x-ui.empty-state icon="bi-person-plus" title="No registration records"
+                                        message="New admission applications will appear here once submitted." />
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        <!-- New Registration Modal -->
-        <div x-show="openModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            style="display: none;">
+        <div x-show="openModal" x-cloak
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+            role="dialog" aria-modal="true" aria-labelledby="registrationModalTitle">
             <div @click.outside="openModal = false"
-                class="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-200">
-                <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-                    <h3 class="font-bold text-base">New Registration</h3>
-                    <button type="button" @click="openModal = false"
-                        class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+                class="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <h3 id="registrationModalTitle" class="flex items-center gap-2 text-base font-bold text-slate-900">
+                        <i class="bi bi-person-plus text-emerald-600"></i> New registration
+                    </h3>
+                    <button type="button" @click="openModal = false" aria-label="Close"
+                        class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                        <i class="bi bi-x-lg text-sm"></i>
+                    </button>
                 </div>
 
-                <form action="{{ route('admin.admissions.store') }}" method="POST"
-                    class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <form action="{{ route('admin.admissions.store') }}" method="POST">
                     @csrf
+                    <div class="max-h-[70vh] space-y-4 overflow-y-auto p-6">
+                        @if ($errors->any())
+                            <div class="ui-alert ui-alert-error">
+                                <i class="bi bi-exclamation-triangle-fill mt-0.5"></i>
+                                <div>
+                                    <p class="font-semibold">Please fix the following:</p>
+                                    <ul class="mt-1 list-inside list-disc space-y-0.5">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            </div>
+                        @endif
 
-                    @if ($errors->any())
-                        <div class="p-4 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold">
-                            <ul class="list-disc pl-5 space-y-1">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">First Name *</label>
-                            <input type="text" name="first_name" value="{{ old('first_name') }}" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Last Name *</label>
-                            <input type="text" name="last_name" value="{{ old('last_name') }}" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Gender *</label>
-                            <select name="gender" required class="w-full border-gray-300 rounded-lg text-sm">
-                                <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}>Male</option>
-                                <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}>Female</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Date of Birth *</label>
-                            <input type="date" name="dob" value="{{ old('dob') }}" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Class Applied For *</label>
-                            <select name="class_applied" required class="w-full border-gray-300 rounded-lg text-sm">
-                                <option value="">Select Class...</option>
-                                @foreach ($classes as $className)
-                                    <option value="{{ $className }}"
-                                        {{ old('class_applied') == $className ? 'selected' : '' }}>{{ $className }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Academic Year *</label>
-                            <input type="text" name="academic_year"
-                                value="{{ old('academic_year', current_academic_year()) }}" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Address *</label>
-                            <input type="text" name="address" value="{{ old('address') }}"
-                                placeholder="e.g. Birendranagar-6, Surkhet" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Parent Name *</label>
-                            <input type="text" name="parent_name" value="{{ old('parent_name') }}" required
-                                class="w-full border-gray-300 rounded-lg text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Mobile *</label>
-                            <input type="text" name="mobile" value="{{ old('mobile') }}" placeholder="98XXXXXXXX"
-                                required class="w-full border-gray-300 rounded-lg text-sm">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="first_name" class="ui-label">First name <span class="text-rose-600">*</span></label>
+                                <input type="text" name="first_name" id="first_name" value="{{ old('first_name') }}"
+                                    required class="ui-input">
+                            </div>
+                            <div>
+                                <label for="last_name" class="ui-label">Last name <span class="text-rose-600">*</span></label>
+                                <input type="text" name="last_name" id="last_name" value="{{ old('last_name') }}"
+                                    required class="ui-input">
+                            </div>
+                            <div>
+                                <label for="gender" class="ui-label">Gender <span class="text-rose-600">*</span></label>
+                                <select name="gender" id="gender" required class="ui-input">
+                                    <option value="Male" {{ old('gender') === 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old('gender') === 'Female' ? 'selected' : '' }}>Female</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="dob" class="ui-label">Date of birth <span class="text-rose-600">*</span></label>
+                                <input type="date" name="dob" id="dob" value="{{ old('dob') }}" required class="ui-input">
+                            </div>
+                            <div>
+                                <label for="class_applied" class="ui-label">Class applied for <span class="text-rose-600">*</span></label>
+                                <select name="class_applied" id="class_applied" required class="ui-input">
+                                    <option value="">Select class...</option>
+                                    @foreach ($classes as $className)
+                                        <option value="{{ $className }}"
+                                            {{ old('class_applied') == $className ? 'selected' : '' }}>{{ $className }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label for="academic_year" class="ui-label">Academic year <span class="text-rose-600">*</span></label>
+                                <input type="text" name="academic_year" id="academic_year"
+                                    value="{{ old('academic_year', current_academic_year()) }}" required class="ui-input">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="address" class="ui-label">Address <span class="text-rose-600">*</span></label>
+                                <input type="text" name="address" id="address" value="{{ old('address') }}"
+                                    placeholder="e.g. Birendranagar-6, Surkhet" required class="ui-input">
+                            </div>
+                            <div>
+                                <label for="parent_name" class="ui-label">Parent name <span class="text-rose-600">*</span></label>
+                                <input type="text" name="parent_name" id="parent_name" value="{{ old('parent_name') }}"
+                                    required class="ui-input">
+                            </div>
+                            <div>
+                                <label for="mobile" class="ui-label">Mobile <span class="text-rose-600">*</span></label>
+                                <input type="text" name="mobile" id="mobile" value="{{ old('mobile') }}"
+                                    placeholder="98XXXXXXXX" required class="ui-input">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200 mt-6">
-                        <button type="button" @click="openModal = false"
-                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm">Cancel</button>
-                        <button type="submit"
-                            class="px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium">Save
-                            Registration</button>
+                    <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+                        <button type="button" @click="openModal = false" class="ui-btn ui-btn-secondary">Cancel</button>
+                        <button type="submit" class="ui-btn ui-btn-primary">
+                            <i class="bi bi-check2"></i> Save registration
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
-
     </div>
 @endsection

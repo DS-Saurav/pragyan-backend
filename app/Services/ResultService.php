@@ -63,17 +63,21 @@ class ResultService
 
         $theoryOk = (float) $es->theory_full <= 0 || ($theory !== null && $theory >= (float) $es->theory_pass);
         $practicalOk = (float) $es->practical_full <= 0 || ($practical !== null && $practical >= (float) $es->practical_pass);
-        $pass = $entered && ! $absent && $theoryOk && $practicalOk;
+
+        // CDC Letter Grading Directive, 2083, Annexure-1: below 35% is NG
+        // ("no grade point") regardless of component passes, so a subject
+        // only counts as passed when the aggregate reaches 35% as well.
+        $pass = $entered && ! $absent && $theoryOk && $practicalOk
+            && $percent >= GradeScale::NG_MIN_PERCENT;
 
         if ($pass) {
             $g = GradeScale::forPercent($percent);
-            if ($g['grade'] === 'NG') {
-                $g = GradeScale::lowest();
-            }
         } else {
+            // NG/absent/unentered carry no grade point (Annexure-1: NG row
+            // shows "-"). They must never feed a numeric GPA contribution.
             $g = [
                 'grade' => $absent ? 'AB' : ($entered ? 'NG' : '—'),
-                'point' => 0.0,
+                'point' => null,
                 'remark' => $absent ? 'Absent' : ($entered ? 'Not Graded' : ''),
             ];
         }
@@ -90,7 +94,73 @@ class ResultService
             'pass' => $pass,
             'absent' => $absent,
             'entered' => $entered,
+            // Display-only per-component (TH/IN) breakdown for the separate
+            // component rows on the marksheet (Stage P3J). Adding this key
+            // changes NO aggregate behaviour: the grade/point above, pass
+            // logic and GPA math are exactly as before.
+            'components' => $this->componentResults($es, $theory, $practical, $absent),
         ];
+    }
+
+    /**
+     * Display-only TH/IN component breakdown (Stage P3J), derived purely
+     * from the stored marks and the SAME GradeScale bands used everywhere:
+     * each component's own percentage = obtained/full*100, graded through
+     * GradeScale::forPercent (below 35% is NG with no grade point, per the
+     * CDC directive). Components the exam subject does not offer
+     * (full marks 0) get no row. Absence is preserved honestly: an absent
+     * student shows AB per component; a component with NO recorded mark
+     * shows an em dash (—) with NO grade - a missing mark is never
+     * fabricated as zero or as NG.
+     *
+     * Component grades are display details only: they never feed pass/
+     * fail, the aggregate subject grade, or any GPA calculation (those
+     * stay in subjectResult()/classResults() exactly as they were).
+     */
+    private function componentResults(ExamSubject $es, $theory, $practical, bool $absent): array
+    {
+        $specs = [
+            ['label' => 'TH', 'obtained' => $theory, 'full' => (float) $es->theory_full, 'pass' => $es->theory_pass],
+            ['label' => 'IN', 'obtained' => $practical, 'full' => (float) $es->practical_full, 'pass' => $es->practical_pass],
+        ];
+
+        $out = [];
+        foreach ($specs as $spec) {
+            if ($spec['full'] <= 0) {
+                continue; // this exam subject has no such component
+            }
+
+            if ($absent) {
+                $out[] = [
+                    'label' => $spec['label'], 'obtained' => null,
+                    'full' => $spec['full'], 'pass' => $spec['pass'],
+                    'percent' => null, 'grade' => 'AB', 'point' => null, 'remark' => 'Absent',
+                ];
+
+                continue;
+            }
+
+            $obtained = $spec['obtained'];
+            if ($obtained === null || $obtained === '') {
+                $out[] = [
+                    'label' => $spec['label'], 'obtained' => null,
+                    'full' => $spec['full'], 'pass' => $spec['pass'],
+                    'percent' => null, 'grade' => '—', 'point' => null, 'remark' => '',
+                ];
+
+                continue;
+            }
+
+            $percent = (float) $obtained / $spec['full'] * 100;
+            $g = GradeScale::forPercent($percent);
+            $out[] = [
+                'label' => $spec['label'], 'obtained' => (float) $obtained,
+                'full' => $spec['full'], 'pass' => $spec['pass'],
+                'percent' => $percent, 'grade' => $g['grade'], 'point' => $g['point'], 'remark' => $g['remark'],
+            ];
+        }
+
+        return $out;
     }
 
     public function classResults(Exam $exam, SchoolClass $class): array
@@ -105,13 +175,22 @@ class ResultService
         $students = self::students($class->id);
         $marks = ExamMark::whereIn('exam_subject_id', $subjects->pluck('id'))->get()->groupBy('student_id');
 
+        // Credit-hour (weighted) basis per the owner's marksheet spec:
+        // GPA = Σ(CH × GP) / ΣCH. It applies ONLY when every subject carries
+        // valid credit-hours data — the admin marksheet-layout map is a
+        // display-only artefact and must never feed this calculation.
+        $chList = $subjects->mapWithKeys(fn (ExamSubject $es) => [$es->id => $this->creditHours($es)]);
+        $weighted = $subjects->isNotEmpty() && $chList->every(fn ($ch) => $ch !== null);
+        $chSum = (float) $chList->sum();
+
         $rows = [];
         foreach ($students as $s) {
             $mine = ($marks->get($s->id) ?? collect())->keyBy('exam_subject_id');
             $subs = [];
             $total = 0;
             $full = 0;
-            $points = 0;
+            $points = 0;       // Σ grade points (unweighted basis)
+            $weightedSum = 0.0; // Σ(CH × GP) (weighted basis)
             $complete = $subjects->isNotEmpty();
             $allPass = true;
             $failed = [];
@@ -121,7 +200,12 @@ class ResultService
                 $subs[$es->id] = $r;
                 $total += $r['total'];
                 $full += $r['full'];
-                $points += $r['point'];
+
+                // NG/absent/unentered have no grade point: they contribute 0.
+                if ($r['point'] !== null) {
+                    $points += $r['point'];
+                    $weightedSum += $r['point'] * $chList[$es->id];
+                }
 
                 if (! $r['entered']) {
                     $complete = false;
@@ -137,6 +221,14 @@ class ResultService
             $percent = $full > 0 ? $total / $full * 100 : 0;
             $result = ! $complete ? 'INCOMPLETE' : ($allPass ? 'PASS' : 'FAIL');
 
+            // Weighted only on the credit-hour basis; else the honest
+            // unweighted mean. Two decimals so every screen agrees.
+            if ($weighted) {
+                $gpa = $chSum > 0 ? round($weightedSum / $chSum, 2) : 0.0;
+            } else {
+                $gpa = $subjects->count() ? round($points / $subjects->count(), 2) : 0.0;
+            }
+
             $rows[] = [
                 'student' => $s,
                 'name' => self::studentName($s),
@@ -146,7 +238,8 @@ class ResultService
                 'total' => $total,
                 'full' => $full,
                 'percent' => $percent,
-                'gpa' => $subjects->count() ? $points / $subjects->count() : 0,
+                'gpa' => $gpa,
+                'gpa_basis' => $weighted ? 'credit_hour' : 'unweighted',
                 'overall_grade' => $complete ? GradeScale::forPercent($percent)['grade'] : '—',
                 'division' => $result === 'PASS' ? $this->division($percent) : '—',
                 'result' => $result,
@@ -201,5 +294,25 @@ class ResultService
             $percent >= 45 => 'Second Division',
             default => 'Third Division',
         };
+    }
+
+    /**
+     * Authoritative credit hours for a subject row, or null when absent or
+     * invalid. Pre-migration the column does not exist, so this null-safe
+     * getter is the only access point (never read it directly elsewhere).
+     * A value must be numeric and strictly positive to be usable for
+     * GPA = Σ(CH × GP) / ΣCH.
+     */
+    private function creditHours(ExamSubject $es): ?float
+    {
+        $ch = $es->getAttribute('credit_hours');
+
+        if ($ch === null || $ch === '' || ! is_numeric($ch)) {
+            return null;
+        }
+
+        $ch = (float) $ch;
+
+        return $ch > 0 ? $ch : null;
     }
 }

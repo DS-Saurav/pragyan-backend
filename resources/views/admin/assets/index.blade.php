@@ -26,8 +26,8 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900">School Inventory Records</h3>
-                    <p class="text-xs text-gray-500">Manage library books, robotics gear, lab instruments, and
-                        institutional equipment.</p>
+                    <p class="text-xs text-gray-500">Manage robotics gear, lab instruments, and institutional
+                        equipment.</p>
                 </div>
                 <button type="button" onclick="document.getElementById('addAssetModal').classList.remove('hidden')"
                     class="print:hidden inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
@@ -38,68 +38,10 @@
                 </button>
             </div>
 
-            <!-- Barcode Quick Scan Return Bar -->
-            <div
-                class="mb-6 bg-slate-900 text-white p-4 rounded-xl shadow-lg border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 bg-indigo-600/30 text-indigo-400 rounded-lg">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v1M12 20v-1M4 12h1M20 12h-1M6.343 6.343l.707.707M16.95 16.95l.707.707M6.343 17.657l.707-.707M16.95 7.05l.707-.707">
-                            </path>
-                        </svg>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm">Quick Barcode Return</h4>
-                        <p class="text-xs text-slate-400">Scan any book/item barcode to mark it returned instantly.</p>
-                    </div>
-                </div>
-
-                <!-- Scanner Form -->
-                <form action="{{ route('admin.assets.barcode-return') }}" method="POST"
-                    class="w-full md:w-auto flex items-center gap-2">
-                    @csrf
-                    <div class="relative w-full md:w-80">
-                        <input type="text" id="barcodeScannerInput" name="asset_tag"
-                            placeholder="Click or scan barcode here..." autofocus required
-                            class="w-full pl-9 pr-4 py-2 text-xs bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 placeholder-slate-500 font-mono">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 10h18M3 14h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z">
-                                </path>
-                            </svg>
-                        </span>
-                    </div>
-                    <button type="submit"
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition shadow-md">
-                        Return
-                    </button>
-                </form>
-            </div>
-            <script>
-                // Keep focus on the barcode input box for hands-free scanning
-                document.addEventListener("DOMContentLoaded", function() {
-                    const barcodeInput = document.getElementById('barcodeScannerInput');
-
-                    // Auto refocus if user clicks outside unless typing in another field
-                    document.addEventListener('click', function(e) {
-                        // Don't steal focus while a modal is open
-                        if (document.querySelector('#issueModal:not(.hidden), #addAssetModal:not(.hidden), #multiLoanModal')) {
-                            return;
-                        }
-                        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !==
-                            'TEXTAREA') {
-                            barcodeInput.focus();
-                        }
-                    });
-                });
-            </script>
             <!-- Category Tabs -->
             @php
-                $currentTab = $tab ?? 'library';
+                $currentTab = $tab ?? 'robotics';
                 $tabs = [
-                    'library' => 'Library Books',
                     'robotics' => 'Robotics',
                     'electronics' => 'Electronics',
                     'chemistry' => 'Chemistry Lab',
@@ -341,68 +283,6 @@
 
         </div>
     </div>
-
-    <!-- Multiple Loans Return Resolution Modal (opens after a barcode scan matches several borrowers) -->
-    @if (session('active_loans_prompt'))
-        <div id="multiLoanModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm print:hidden">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 border border-gray-100">
-                <div class="flex justify-between items-center pb-3 border-b mb-4">
-                    <div>
-                        <h3 class="text-md font-bold text-gray-900">Select Returning Student</h3>
-                        <p class="text-xs text-gray-500">Item barcode: <span
-                                class="font-mono font-bold text-indigo-600">{{ session('multiple_loans_tag') }}</span>
-                            has multiple active borrowers.</p>
-                    </div>
-                    <button type="button" onclick="document.getElementById('multiLoanModal').remove()"
-                        class="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
-                </div>
-
-                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-2.5 rounded-lg mb-4">
-                    ⚠️ Choose the exact student handing back the book to prevent queue mismatches:
-                </p>
-
-                <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    @foreach (session('active_loans_prompt') as $loan)
-                        @php
-                            // Works whether the controller flashed models or plain arrays
-                            $fmt = fn($d) => $d ? \Carbon\Carbon::parse($d)->format('Y-m-d') : '—';
-                            $loanId = data_get($loan, 'id');
-                            $assetId = data_get($loan, 'asset_id');
-                        @endphp
-                        <div
-                            class="flex items-center justify-between gap-3 bg-gray-50 hover:bg-indigo-50/50 p-3 rounded-lg border border-gray-200 transition">
-                            <div>
-                                <span class="font-bold text-gray-900 block text-xs">
-                                    {{ data_get($loan, 'student.first_name') }} {{ data_get($loan, 'student.last_name') }}
-                                    <span class="text-gray-500 font-normal">(Roll:
-                                        {{ data_get($loan, 'student.roll_number') ?? 'N/A' }})</span>
-                                </span>
-                                <span class="text-[10px] text-gray-400">Issued: {{ $fmt(data_get($loan, 'issue_date')) }} |
-                                    Due: {{ $fmt(data_get($loan, 'due_date')) }}</span>
-                            </div>
-
-                            <form action="{{ route('admin.assets.return', $assetId) }}" method="POST">
-                                @csrf
-                                <input type="hidden" name="loan_id" value="{{ $loanId }}">
-                                <button type="submit"
-                                    class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-md shadow transition">
-                                    Confirm Return
-                                </button>
-                            </form>
-                        </div>
-                    @endforeach
-                </div>
-
-                <div class="mt-5 text-right">
-                    <button type="button" onclick="document.getElementById('multiLoanModal').remove()"
-                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-lg transition">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
 
     <!-- Add Item Modal -->
     <div id="addAssetModal"

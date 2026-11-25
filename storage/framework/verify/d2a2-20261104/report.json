@@ -1,0 +1,823 @@
+{
+    "task": "D2-A.2",
+    "started_at": "2026-11-04T15:43:36+00:00",
+    "tests": [
+        {
+            "name": "Both media tables have every service-required column",
+            "result": "PASS"
+        },
+        {
+            "name": "Asset schema has exactly three SET NULL user foreign keys",
+            "result": "PASS"
+        },
+        {
+            "name": "Attachment asset foreign key protects referenced asset deletion",
+            "result": "PASS"
+        },
+        {
+            "name": "Required asset unique and lookup indexes exist",
+            "result": "PASS"
+        },
+        {
+            "name": "Attachment owner and unique four-column slot indexes exist in order",
+            "result": "PASS"
+        },
+        {
+            "name": "Default status and disks, nullable public paths and attribution",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL rejects duplicate original_path",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL rejects duplicate storage_filename",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL rejects duplicate non-null public_path",
+            "result": "PASS"
+        },
+        {
+            "name": "Checksum index permits deliberate duplicate content hashes",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL rejects missing user FK uploaded_by",
+            "result": "FAIL",
+            "type": "RuntimeException",
+            "message": "Unexpected MySQL error code 1216"
+        },
+        {
+            "name": "MySQL rejects missing user FK reviewed_by",
+            "result": "FAIL",
+            "type": "RuntimeException",
+            "message": "Unexpected MySQL error code 1216"
+        },
+        {
+            "name": "MySQL rejects missing user FK published_by",
+            "result": "FAIL",
+            "type": "RuntimeException",
+            "message": "Unexpected MySQL error code 1216"
+        },
+        {
+            "name": "Strict MySQL rejects negative unsigned file_size",
+            "result": "PASS"
+        },
+        {
+            "name": "Strict MySQL rejects negative unsigned width",
+            "result": "PASS"
+        },
+        {
+            "name": "Strict MySQL rejects negative unsigned height",
+            "result": "PASS"
+        },
+        {
+            "name": "Deleting synthetic user preserves asset and nulls all attribution FKs",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL focal defaults are 50.00 and order defaults to zero",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL rejects missing media asset FK",
+            "result": "FAIL",
+            "type": "RuntimeException",
+            "message": "Unexpected MySQL error code 1216"
+        },
+        {
+            "name": "MySQL rejects duplicate owner slot even with a different asset",
+            "result": "PASS"
+        },
+        {
+            "name": "MySQL blocks deletion of attached asset",
+            "result": "FAIL",
+            "type": "RuntimeException",
+            "message": "Unexpected MySQL error code 1217"
+        },
+        {
+            "name": "MySQL permits separate orders and placements",
+            "result": "PASS"
+        },
+        {
+            "name": "Decimal(5,2) round-trips focal boundaries exactly",
+            "result": "PASS"
+        },
+        {
+            "name": "Document database-only validation boundary using synthetic records",
+            "result": "PASS"
+        },
+        {
+            "name": "Unauthorized actor cannot upload",
+            "result": "PASS"
+        },
+        {
+            "name": "Service upload records draft dimensions, bytes, SHA256 and private original",
+            "result": "PASS"
+        },
+        {
+            "name": "Draft cannot skip directly to publication",
+            "result": "PASS"
+        },
+        {
+            "name": "Draft metadata can be edited",
+            "result": "PASS"
+        },
+        {
+            "name": "Draft enters review and clears approval",
+            "result": "PASS"
+        },
+        {
+            "name": "Review asset metadata edits are blocked",
+            "result": "PASS"
+        },
+        {
+            "name": "Review cannot publish without approval",
+            "result": "PASS"
+        },
+        {
+            "name": "Non-admin uploader cannot self-approve",
+            "result": "PASS"
+        },
+        {
+            "name": "Different manager can approve",
+            "result": "PASS"
+        },
+        {
+            "name": "Non-admin uploader cannot self-publish after another review",
+            "result": "PASS"
+        },
+        {
+            "name": "Different manager publishes a derivative and retains original",
+            "result": "PASS"
+        },
+        {
+            "name": "Service canonicalizes placement and defaults omitted focal values",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 0",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 1",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 2",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 3",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 4",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 5",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 6",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_x invalid case 7",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 0",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 1",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 2",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 3",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 4",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 5",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 6",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects focal_y invalid case 7",
+            "result": "PASS"
+        },
+        {
+            "name": "Service permits exact focal boundaries and preserves omitted axis on update",
+            "result": "PASS"
+        },
+        {
+            "name": "Invalid attachment update preserves all prior metadata",
+            "result": "PASS"
+        },
+        {
+            "name": "Service rejects duplicate canonical owner slot",
+            "result": "PASS"
+        },
+        {
+            "name": "Service denies unsupported private owner types",
+            "result": "PASS"
+        },
+        {
+            "name": "Service denies nonexistent owner",
+            "result": "PASS"
+        },
+        {
+            "name": "Service denies invalid placement",
+            "result": "PASS"
+        },
+        {
+            "name": "Unauthorized actor cannot update attachment",
+            "result": "PASS"
+        },
+        {
+            "name": "Public event reference prevents archive even by admin",
+            "result": "PASS"
+        },
+        {
+            "name": "Public event reference prevents return to draft",
+            "result": "PASS"
+        },
+        {
+            "name": "Model prohibits asset deletion",
+            "result": "PASS"
+        },
+        {
+            "name": "Detached asset can archive, archived selection is blocked, restore returns to draft",
+            "result": "PASS"
+        },
+        {
+            "name": "Configured administrator override permits self-review and publication",
+            "result": "PASS"
+        },
+        {
+            "name": "Homepage hero reference prevents archive",
+            "result": "PASS"
+        },
+        {
+            "name": "Non-hero setting cannot own media",
+            "result": "PASS"
+        },
+        {
+            "name": "Missing referenced event fails closed against archive",
+            "result": "PASS"
+        },
+        {
+            "name": "Changed original bytes block publication and leave review state",
+            "result": "PASS"
+        },
+        {
+            "name": "Legacy synthetic hero checksum reference prevents archive without attachments",
+            "result": "PASS"
+        }
+    ],
+    "observations": [
+        "Direct SQL accepts out-of-range focal coordinates, arbitrary status, non-SHA256 checksum strings and zero dimensions. These migrations do not define CHECK constraints; service validation is required.",
+        "Polymorphic owners have no database foreign key. Direct SQL can create references to nonexistent owners; service owner validation and fail-closed reference checks are required."
+    ],
+    "applied": [
+        "2026_11_01_000001_create_media_assets_table.php",
+        "2026_11_01_000002_create_media_attachments_table.php"
+    ],
+    "safety": {
+        "dotenv_loaded": false,
+        "artisan_used": false,
+        "migration_repository_used": false,
+        "migration_down_called": false,
+        "drop_privileges_requested": false,
+        "storage_root": "D:\\school-app\\storage\\framework\\verify\\d2a2-20261104/synthetic-storage"
+    },
+    "migration_hashes_before": {
+        "2026_11_01_000001_create_media_assets_table.php": "B5BD570BD5690505D64C6EC8F6E5DFFC2952240A67C75B5A6B8A13DBEA8DBA52",
+        "2026_11_01_000002_create_media_attachments_table.php": "FA71048C99FF5AA58C3B01D39744D3D67CC3126902198D1FF843D94C0E2BBBA6"
+    },
+    "identity": {
+        "db": "school_scratch_media_d2a2",
+        "host": "Saurav_Acharya",
+        "port": 33006,
+        "version": "8.0.46",
+        "account": "d2_scratch_provisioner@localhost"
+    },
+    "grants": [
+        "GRANT USAGE ON *.* TO `d2_scratch_provisioner`@`localhost`",
+        "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, REFERENCES, INDEX, ALTER, CREATE TEMPORARY TABLES ON `school\\_scratch\\_media\\_d2a2`.* TO `d2_scratch_provisioner`@`localhost`"
+    ],
+    "active_roles": "NONE",
+    "database_defaults": {
+        "charset": "utf8mb4",
+        "collation_name": "utf8mb4_unicode_ci"
+    },
+    "tables_before": [],
+    "prerequisite_tables": [
+        "users",
+        "user_roles",
+        "school_events",
+        "settings"
+    ],
+    "schema": {
+        "users": {
+            "ddl": "CREATE TABLE `users` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `email` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "users",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        },
+        "user_roles": {
+            "ddl": "CREATE TABLE `user_roles` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `user_id` bigint unsigned NOT NULL,\n  `role` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "user_roles",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        },
+        "school_events": {
+            "ddl": "CREATE TABLE `school_events` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `date` date NOT NULL,\n  `type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `description` text COLLATE utf8mb4_unicode_ci,\n  `is_public` tinyint(1) NOT NULL DEFAULT '0',\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "school_events",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        },
+        "settings": {
+            "ddl": "CREATE TABLE `settings` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `key` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `value` text COLLATE utf8mb4_unicode_ci,\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `settings_key_unique` (`key`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "settings",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "settings",
+                    "Non_unique": 0,
+                    "Key_name": "settings_key_unique",
+                    "Seq_in_index": 1,
+                    "Column_name": "key",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        },
+        "media_assets": {
+            "ddl": "CREATE TABLE `media_assets` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `disk` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'media_originals',\n  `original_path` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `public_disk` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'media_derivatives',\n  `public_path` varchar(160) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `original_filename` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `storage_filename` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `mime_type` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `file_size` bigint unsigned NOT NULL,\n  `width` int unsigned NOT NULL,\n  `height` int unsigned NOT NULL,\n  `checksum` char(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `title` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `description` text COLLATE utf8mb4_unicode_ci,\n  `default_alt_text` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `category` varchar(60) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `uploaded_by` bigint unsigned DEFAULT NULL,\n  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',\n  `submitted_at` timestamp NULL DEFAULT NULL,\n  `reviewed_by` bigint unsigned DEFAULT NULL,\n  `reviewed_at` timestamp NULL DEFAULT NULL,\n  `published_by` bigint unsigned DEFAULT NULL,\n  `published_at` timestamp NULL DEFAULT NULL,\n  `archived_at` timestamp NULL DEFAULT NULL,\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `media_assets_original_path_unique` (`original_path`),\n  UNIQUE KEY `media_assets_storage_filename_unique` (`storage_filename`),\n  UNIQUE KEY `media_assets_public_path_unique` (`public_path`),\n  KEY `media_assets_checksum_index` (`checksum`),\n  KEY `media_assets_category_index` (`category`),\n  KEY `media_assets_uploaded_by_index` (`uploaded_by`),\n  KEY `media_assets_status_index` (`status`),\n  KEY `media_assets_reviewed_by_index` (`reviewed_by`),\n  KEY `media_assets_published_by_index` (`published_by`),\n  KEY `media_assets_archived_at_index` (`archived_at`),\n  CONSTRAINT `media_assets_published_by_foreign` FOREIGN KEY (`published_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,\n  CONSTRAINT `media_assets_reviewed_by_foreign` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,\n  CONSTRAINT `media_assets_uploaded_by_foreign` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 0,
+                    "Key_name": "media_assets_original_path_unique",
+                    "Seq_in_index": 1,
+                    "Column_name": "original_path",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 0,
+                    "Key_name": "media_assets_storage_filename_unique",
+                    "Seq_in_index": 1,
+                    "Column_name": "storage_filename",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 0,
+                    "Key_name": "media_assets_public_path_unique",
+                    "Seq_in_index": 1,
+                    "Column_name": "public_path",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_checksum_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "checksum",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_category_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "category",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_uploaded_by_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "uploaded_by",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_status_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "status",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_reviewed_by_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "reviewed_by",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_published_by_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "published_by",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_assets",
+                    "Non_unique": 1,
+                    "Key_name": "media_assets_archived_at_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "archived_at",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "YES",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        },
+        "media_attachments": {
+            "ddl": "CREATE TABLE `media_attachments` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `media_asset_id` bigint unsigned NOT NULL,\n  `attachable_type` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `attachable_id` bigint unsigned NOT NULL,\n  `placement` varchar(60) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `display_order` int unsigned NOT NULL DEFAULT '0',\n  `caption` text COLLATE utf8mb4_unicode_ci,\n  `alt_text` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n  `focal_x` decimal(5,2) NOT NULL DEFAULT '50.00',\n  `focal_y` decimal(5,2) NOT NULL DEFAULT '50.00',\n  `created_at` timestamp NULL DEFAULT NULL,\n  `updated_at` timestamp NULL DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `media_attachment_slot` (`attachable_type`,`attachable_id`,`placement`,`display_order`),\n  KEY `media_attachment_owner` (`attachable_type`,`attachable_id`),\n  KEY `media_attachments_media_asset_id_index` (`media_asset_id`),\n  CONSTRAINT `media_attachments_media_asset_id_foreign` FOREIGN KEY (`media_asset_id`) REFERENCES `media_assets` (`id`) ON DELETE RESTRICT\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "indexes": [
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 0,
+                    "Key_name": "PRIMARY",
+                    "Seq_in_index": 1,
+                    "Column_name": "id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 0,
+                    "Key_name": "media_attachment_slot",
+                    "Seq_in_index": 1,
+                    "Column_name": "attachable_type",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 0,
+                    "Key_name": "media_attachment_slot",
+                    "Seq_in_index": 2,
+                    "Column_name": "attachable_id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 0,
+                    "Key_name": "media_attachment_slot",
+                    "Seq_in_index": 3,
+                    "Column_name": "placement",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 0,
+                    "Key_name": "media_attachment_slot",
+                    "Seq_in_index": 4,
+                    "Column_name": "display_order",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 1,
+                    "Key_name": "media_attachment_owner",
+                    "Seq_in_index": 1,
+                    "Column_name": "attachable_type",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 1,
+                    "Key_name": "media_attachment_owner",
+                    "Seq_in_index": 2,
+                    "Column_name": "attachable_id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                },
+                {
+                    "Table": "media_attachments",
+                    "Non_unique": 1,
+                    "Key_name": "media_attachments_media_asset_id_index",
+                    "Seq_in_index": 1,
+                    "Column_name": "media_asset_id",
+                    "Collation": "A",
+                    "Cardinality": 0,
+                    "Sub_part": null,
+                    "Packed": null,
+                    "Null": "",
+                    "Index_type": "BTREE",
+                    "Comment": "",
+                    "Index_comment": "",
+                    "Visible": "YES",
+                    "Expression": null
+                }
+            ]
+        }
+    },
+    "migration_hashes_after": {
+        "2026_11_01_000001_create_media_assets_table.php": "B5BD570BD5690505D64C6EC8F6E5DFFC2952240A67C75B5A6B8A13DBEA8DBA52",
+        "2026_11_01_000002_create_media_attachments_table.php": "FA71048C99FF5AA58C3B01D39744D3D67CC3126902198D1FF843D94C0E2BBBA6"
+    },
+    "final_row_counts": {
+        "users": 4,
+        "user_roles": 4,
+        "school_events": 1,
+        "settings": 2,
+        "media_assets": 9,
+        "media_attachments": 5
+    },
+    "final_table_names": [
+        "media_assets",
+        "media_attachments",
+        "school_events",
+        "settings",
+        "user_roles",
+        "users"
+    ],
+    "synthetic_files": {
+        "media_originals": [
+            "originals/27c5247e-a638-4d09-b21c-19385e13255e.jpg",
+            "originals/6591b9a8-b9dd-4d79-9ddb-8b8d775cf8af.jpg",
+            "originals/67c41f15-b735-42c5-a93a-3f7b48f0e512.jpg",
+            "originals/c9015414-816a-4777-b5d5-4da71f1a2465.jpg"
+        ],
+        "media_derivatives": [
+            "published/2e64afb1-95b8-48ec-b580-1464d516d41e.jpg",
+            "published/ac88282b-d82d-4448-ac8c-75242c07eb94.jpg",
+            "published/b7a3f668-84cc-4d8a-a3c6-b2b0144f49cd.jpg"
+        ],
+        "public": [
+            "hero/d2-synthetic.jpg"
+        ]
+    },
+    "summary": {
+        "passed": 64,
+        "failed": 5
+    },
+    "state": "STOPPED_AT_OWNER_REVIEW_CHECKPOINT",
+    "limitations": [
+        "No migration rollback or reapplication attempted.",
+        "HTTP routes, browser UI and concurrent multi-process locking were not tested.",
+        "Minimal prerequisite tables model only columns needed for these tests; this is not full existing-schema compatibility testing.",
+        "Synthetic records and files are retained for review. No real media storage was configured.",
+        "Migration up() methods were called directly in order; no migration history table or other migration was executed."
+    ]
+}

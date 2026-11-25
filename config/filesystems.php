@@ -47,6 +47,16 @@ return [
             'report' => false,
         ],
 
+        // Media originals and derivatives are outside public/storage. Only checked routes serve them.
+        'media_originals' => [
+            'driver' => 'local', 'root' => storage_path('app/private/media'),
+            'visibility' => 'private', 'serve' => false, 'throw' => true,
+        ],
+        'media_derivatives' => [
+            'driver' => 'local', 'root' => storage_path('app/media'),
+            'visibility' => 'private', 'serve' => false, 'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

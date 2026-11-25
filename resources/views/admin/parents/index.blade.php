@@ -121,16 +121,16 @@
                                 <td class="p-4 text-right space-x-2 print:hidden">
                                     <button @click="currentParent = {{ json_encode($parent) }}; openChildrenModal = true"
                                         class="p-1.5 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 text-xs"
-                                        title="Manage Children">🎓</button>
+                                        title="Manage Children"><i class="bi bi-mortarboard"></i></button>
                                     <button @click="currentParent = {{ json_encode($parent) }}; openEditModal = true"
                                         class="p-1.5 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 text-xs"
-                                        title="Edit">✏️</button>
+                                        title="Edit"><i class="bi bi-pencil"></i></button>
                                     <form action="{{ route('admin.parents.destroy', $parent->id) }}" method="POST"
                                         class="inline" onsubmit="return confirm('Delete this parent?')">
                                         @csrf @method('DELETE')
                                         <button type="submit"
                                             class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100 text-xs"
-                                            title="Delete">🗑️</button>
+                                            title="Delete"><i class="bi bi-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>

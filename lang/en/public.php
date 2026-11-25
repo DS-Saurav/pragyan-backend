@@ -1,0 +1,80 @@
+<?php
+
+return [
+    'language' => 'Language',
+    'english' => 'English',
+    'nepali' => 'नेपाली',
+    'school' => 'School',
+    'current_language' => 'Current language',
+    'switch_to' => 'Switch language to :language',
+
+    'skip_to_content' => 'Skip to content',
+    'skip_to_message' => 'Skip to the message',
+    'primary_navigation' => 'Primary navigation',
+    'mobile_primary_navigation' => 'Mobile primary navigation',
+    'parent_portal' => 'Parent Portal',
+    'menu' => 'Menu',
+    'open_navigation_menu' => 'Open navigation menu',
+    'close_navigation_menu' => 'Close navigation menu',
+
+    'home' => 'Home',
+    'notices' => 'Notices',
+    'calendar' => 'Calendar',
+    'gallery' => 'Gallery',
+    'news' => 'News',
+    'about' => 'About',
+    'leadership_and_team' => 'Leadership and Team',
+    'discover_pragyan' => 'Discover Pragyan',
+    'learning' => 'Learning',
+    'academics' => 'Academics',
+    'school_life' => 'School Life',
+    'admissions' => 'Admissions',
+    'contact' => 'Contact',
+    'explore' => 'Explore',
+    'get_in_touch' => 'Get in touch',
+    'directions' => 'Directions',
+    'website_coming_soon' => 'Website coming soon',
+    'return_home' => 'Return home',
+    'home_label' => ':name home',
+    'copyright' => '© :year :name. All rights reserved.',
+    'published_content' => 'Published content',
+    'view_details' => 'View details',
+    'news_archive' => 'News archive',
+    'gallery_archive' => 'Gallery archive',
+    'notices_archive' => 'Notices archive',
+
+    'unavailable' => [
+        'eyebrow' => 'Nepali translation unavailable',
+        'heading' => 'This page is not yet available in Nepali',
+        'message' => 'An approved Nepali translation of this content will appear here when it is ready.',
+        'view_english' => 'View in English',
+    ],
+
+    'errors' => [
+        '403' => [
+            'title' => 'Access unavailable',
+            'heading' => 'This page is not available to you',
+            'message' => 'You may not have permission to view this page. If you think this is unexpected, please contact the school office.',
+        ],
+        '404' => [
+            'title' => 'Page not found',
+            'heading' => 'We could not find that page',
+            'message' => 'The link may be out of date, or the page may have moved. You can return to the home page and continue from there.',
+        ],
+        '419' => [
+            'title' => 'Page expired',
+            'heading' => 'This page needs to be refreshed',
+            'message' => 'For your security, this request has expired. Please return to the previous page, refresh it, and try again.',
+        ],
+        '429' => [
+            'title' => 'Please try again shortly',
+            'heading' => 'Please wait a moment',
+            'message' => 'Too many requests were made in a short time. Please wait a little while, then try again.',
+        ],
+        '500' => [
+            'title' => 'Something went wrong',
+            'heading' => 'We could not complete that request',
+            'message' => 'Please try again in a moment. If the problem continues, please contact the school office.',
+        ],
+    ],
+];

@@ -48,7 +48,7 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        📅 Timetable & Period Management
+                        <i class="bi bi-calendar3"></i> Timetable & Period Management
                     </h3>
                     <p class="text-xs text-gray-500">Add/remove daily periods, set custom timings, and assign subjects and
                         teachers per class.</p>
@@ -56,16 +56,16 @@
                 <div class="flex items-center gap-2">
                     <button @click="showPeriodsModal = true"
                         class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg shadow-sm transition">
-                        ⚙️ Manage Period Slots (<span x-text="slots.length"></span>)
+                        <i class="bi bi-gear"></i> Manage Period Slots (<span x-text="slots.length"></span>)
                     </button>
                     @if ($selectedClassId)
                         <button onclick="window.print();"
                             class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-lg shadow transition">
-                            🖨️ Print
+                            <i class="bi bi-printer"></i> Print
                         </button>
                         <button type="submit" form="timetableForm"
                             class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
-                            💾 Save Timetable
+                            <i class="bi bi-save"></i> Save Timetable
                         </button>
                     @endif
                 </div>
@@ -128,7 +128,7 @@
                                         @if ($p->is_break)
                                             <td colspan="{{ count($days) }}"
                                                 class="px-4 py-3 text-center text-amber-800 font-bold uppercase tracking-widest text-xs bg-amber-50">
-                                                ☕ {{ $p->name }}
+                                                <i class="bi bi-cup-hot"></i> {{ $p->name }}
                                             </td>
                                         @else
                                             @foreach ($days as $day)
@@ -230,7 +230,7 @@
                                     <button type="button" @click="removeSlot(index)"
                                         class="text-rose-500 hover:text-rose-700 font-bold p-1 text-base"
                                         title="Remove Period">
-                                        🗑️
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
                             </div>

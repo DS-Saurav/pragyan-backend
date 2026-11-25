@@ -9,7 +9,11 @@ use App\Models\Student;
 use App\Models\Teacher;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Schema;
 
 class LibraryController extends Controller
 {
@@ -64,17 +68,90 @@ class LibraryController extends Controller
             'cover_image' => 'nullable|image|max:2048',
         ]);
 
-        if ($request->hasFile('cover_image')) {
-            $validated['cover_image'] = $request->file('cover_image')->store('books', 'public');
-        }
-
-        // Use max id so numbers never repeat after deletions
-        $validated['acc_no'] = 'LIB-'.str_pad((Book::max('id') ?? 0) + 1, 5, '0', STR_PAD_LEFT);
         $validated['available_copies'] = $validated['total_copies'];
 
-        Book::create($validated);
+        // Guard: the books table currently has no cover_image column and Book
+        // does not accept the attribute, so a submitted cover could never be
+        // persisted. Reject the upload BEFORE writing any file (no orphan
+        // files) and before the book is created — ordinary book creation
+        // without a cover keeps working. The error surfaces beside the cover
+        // input inside the reopened add-book modal (default bag + old input).
+        if ($request->hasFile('cover_image') && ! Schema::hasColumn('books', 'cover_image')) {
+            return back()->withErrors([
+                'cover_image' => 'Cover image storage is not yet available: the books table has no cover_image column. Please approve the database schema change first.',
+            ])->withInput();
+        }
+
+        if ($request->hasFile('cover_image')) {
+            $validated['cover_image'] = $request->file('cover_image')->store('books', 'public');
+
+            try {
+                $this->createWithUniqueAccNo($validated);
+            } catch (\Throwable $e) {
+                // The book could not be created with a persistable cover —
+                // never leave the stored file behind.
+                Storage::disk('public')->delete($validated['cover_image']);
+                throw $e;
+            }
+
+            return back()->with('success', 'Book added to catalog successfully!');
+        }
+
+        // Generate the accession number and insert inside a transaction so
+        // concurrent creators cannot reuse the same number.
+        $this->createWithUniqueAccNo($validated);
 
         return back()->with('success', 'Book added to catalog successfully!');
+    }
+
+    /**
+     * Insert a book with the next accession number (LIB-#####). The lookup and
+     * insert run under a row lock, and the transaction is retried on a unique
+     * collision to cover races on an empty table or a still-racing writer.
+     *
+     * @throws \Illuminate\Database\QueryException when retries are exhausted
+     */
+    private function createWithUniqueAccNo(array $attributes): Book
+    {
+        $attempts = 3;
+
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return DB::transaction(function () use ($attributes) {
+                    // Lock the current highest-id row (if any) to serialise
+                    // concurrent creators. max() alone is not a guarantee.
+                    // Include trashed books so a soft-deleted accession number
+                    // is never reused (its unique row still exists).
+                    Book::withTrashed()->orderByDesc('id')->lockForUpdate()->first();
+
+                    $next = (Book::withTrashed()->max('id') ?? 0) + 1;
+                    $attributes['acc_no'] = 'LIB-'.str_pad($next, 5, '0', STR_PAD_LEFT);
+
+                    $book = Book::create($attributes);
+
+                    // cover_image is deliberately NOT in $fillable (the books
+                    // table currently has no such column); when the owner
+                    // approves the schema change the column is written
+                    // explicitly inside this same transaction so a failing
+                    // path-write rolls the creation back completely.
+                    if (array_key_exists('cover_image', $attributes) && Schema::hasColumn('books', 'cover_image')) {
+                        $book->forceFill(['cover_image' => $attributes['cover_image']])->save();
+                    }
+
+                    return $book;
+                });
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($attempt >= $attempts || ! $this->isUniqueViolation($e)) {
+                    throw $e;
+                }
+            }
+        }
+    }
+
+    private function isUniqueViolation(\Illuminate\Database\QueryException $e): bool
+    {
+        return in_array($e->getCode(), ['23000', '23505'], true)
+            || str_contains($e->getMessage(), 'UNIQUE');
     }
 
     public function updateBook(Request $request, Book $book)
@@ -88,29 +165,108 @@ class LibraryController extends Controller
             'cover_image' => 'nullable|image|max:2048',
         ]);
 
+        // Guard: the books table currently has no cover_image column and Book
+        // does not accept the attribute, so a submitted replacement cover
+        // could never be persisted. Reject BEFORE writing any file (no orphan
+        // files, and the previous cover is never deleted). Updating ordinary
+        // book details without a replacement keeps working.
+        if ($request->hasFile('cover_image') && ! Schema::hasColumn('books', 'cover_image')) {
+            return back()->withErrors([
+                'cover_image' => 'Cover image storage is not yet available: the books table has no cover_image column. Please approve the database schema change first.',
+            ])->withInput();
+        }
+
+        $newPath = null;
         if ($request->hasFile('cover_image')) {
-            if ($book->cover_image) {
-                Storage::disk('public')->delete($book->cover_image);
-            }
-            $validated['cover_image'] = $request->file('cover_image')->store('books', 'public');
+            // The replacement is stored first, so the previous file remains
+            // intact while the database update runs.
+            $newPath = $request->file('cover_image')->store('books', 'public');
+            $validated['cover_image'] = $newPath;
         } else {
             unset($validated['cover_image']); // keep the existing cover
         }
 
-        $diff = $validated['total_copies'] - $book->total_copies;
-        $book->available_copies = max(0, $book->available_copies + $diff);
+        $oldPath = $book->cover_image;
 
-        $book->update($validated);
+        try {
+            // Update copy counts under a lock, and refuse a reduction that
+            // would leave fewer total copies than are currently out on loan.
+            $failed = DB::transaction(function () use ($book, $validated, $newPath) {
+                $locked = Book::whereKey($book->id)->lockForUpdate()->firstOrFail();
+
+                $issued = BookIssue::where('book_id', $locked->id)
+                    ->where('status', 'issued')
+                    ->count();
+
+                if ($validated['total_copies'] < $issued) {
+                    return true; // conflict: cannot drop below active loans
+                }
+
+                $diff = $validated['total_copies'] - $locked->total_copies;
+                $locked->available_copies = max(0, $locked->available_copies + $diff);
+                $locked->fill($validated)->save();
+
+                // cover_image is deliberately NOT in $fillable (the books
+                // table currently has no such column); when the owner approves
+                // the schema change, the replacement path is written
+                // explicitly inside this same transaction.
+                if ($newPath && Schema::hasColumn('books', 'cover_image')) {
+                    $locked->forceFill(['cover_image' => $newPath])->save();
+                }
+
+                return false;
+            });
+        } catch (\Throwable $e) {
+            if ($newPath && Storage::disk('public')->exists($newPath)) {
+                Storage::disk('public')->delete($newPath); // metadata was never saved
+            }
+
+            throw $e;
+        }
+
+        if ($failed) {
+            if ($newPath && Storage::disk('public')->exists($newPath)) {
+                Storage::disk('public')->delete($newPath); // nothing was persisted
+            }
+
+            return back()->withErrors([
+                'total_copies' => 'Total copies cannot be less than the number of copies currently issued.',
+            ])->withInput();
+        }
+
+        // Persistence succeeded: now it is safe to retire the previous cover.
+        if ($newPath && $oldPath && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         return back()->with('success', 'Book catalog updated successfully!');
     }
 
     public function destroyBook(Book $book)
     {
-        if ($book->cover_image) {
-            Storage::disk('public')->delete($book->cover_image);
+        // Refuse to delete a book while any of its copies are still on loan,
+        // and soft-delete so historical loan records are preserved.
+        $blocked = DB::transaction(function () use ($book) {
+            $locked = Book::withTrashed()->whereKey($book->id)->lockForUpdate()->firstOrFail();
+
+            if (BookIssue::where('book_id', $locked->id)->where('status', 'issued')->exists()) {
+                return true;
+            }
+
+            if ($locked->cover_image) {
+                Storage::disk('public')->delete($locked->cover_image);
+            }
+
+            $locked->delete();
+
+            return false;
+        });
+
+        if ($blocked) {
+            return back()->withErrors([
+                'book' => 'This book cannot be deleted while copies are still issued. Please return them first.',
+            ]);
         }
-        $book->delete();
 
         return back()->with('success', 'Book removed from catalog!');
     }
@@ -172,21 +328,33 @@ class LibraryController extends Controller
             return back()->withErrors(['member_name' => 'Please select a member.'])->withInput();
         }
 
-        $book = Book::findOrFail($validated['book_id']);
-        if ($book->available_copies <= 0) {
+        // Issue atomically: lock the book row so concurrent requests cannot
+        // both claim the final available copy, and write the loan + count
+        // decrement inside one transaction so they succeed or fail together.
+        $issued = DB::transaction(function () use ($validated, $memberName) {
+            $book = Book::whereKey($validated['book_id'])->lockForUpdate()->first();
+
+            if (! $book || $book->available_copies <= 0) {
+                return false;
+            }
+
+            BookIssue::create([
+                'book_id' => $book->id,
+                'member_type' => $validated['member_type'],
+                'member_name' => $memberName,
+                'issue_date' => Carbon::today(),
+                'due_date' => Carbon::today()->addDays((int) $validated['days']),
+                'status' => 'issued',
+            ]);
+
+            $book->decrement('available_copies');
+
+            return true;
+        });
+
+        if (! $issued) {
             return back()->withErrors(['book_id' => 'Selected book has no available copies left.']);
         }
-
-        BookIssue::create([
-            'book_id' => $book->id,
-            'member_type' => $validated['member_type'],
-            'member_name' => $memberName,
-            'issue_date' => Carbon::today(),
-            'due_date' => Carbon::today()->addDays((int) $validated['days']), // <-- Cast to (int) here
-            'status' => 'issued',
-        ]);
-
-        $book->decrement('available_copies');
 
         return back()->with('success', 'Book issued successfully!');
     }
@@ -194,24 +362,45 @@ class LibraryController extends Controller
     public function returnBook(BookIssue $issue)
     {
         $today = Carbon::today();
-        $dueDate = Carbon::parse($issue->due_date);
-        $fine = 0;
 
-        if ($today->gt($dueDate)) {
-            // due date first, so the result is a positive number of late days
-            $daysLate = (int) $dueDate->diffInDays($today);
-            $fine = $daysLate * self::FINE_PER_DAY;
+        // Return atomically and idempotently: lock the loan row, confirm it is
+        // still active, then update it and restore availability together.
+        $result = DB::transaction(function () use ($issue, $today) {
+            $loan = BookIssue::whereKey($issue->id)->lockForUpdate()->first();
+
+            if (! $loan || $loan->status === 'returned') {
+                return ['status' => 'already_returned', 'fine' => (int) ($loan->fine ?? 0)];
+            }
+
+            $dueDate = Carbon::parse($loan->due_date);
+            $fine = 0;
+
+            if ($today->gt($dueDate)) {
+                // due date first, so the result is a positive number of late days
+                $daysLate = (int) $dueDate->diffInDays($today);
+                $fine = $daysLate * self::FINE_PER_DAY;
+            }
+
+            $loan->update([
+                'returned_date' => $today,
+                'fine' => $fine,
+                'status' => 'returned',
+            ]);
+
+            $book = Book::whereKey($loan->book_id)->lockForUpdate()->first();
+
+            if ($book && $book->available_copies < $book->total_copies) {
+                $book->increment('available_copies');
+            }
+
+            return ['status' => 'returned', 'fine' => $fine];
+        });
+
+        if ($result['status'] === 'already_returned') {
+            return back()->with('success', 'This book has already been returned.');
         }
 
-        $issue->update([
-            'returned_date' => $today,
-            'fine' => $fine,
-            'status' => 'returned',
-        ]);
-
-        $issue->book()->increment('available_copies');
-
-        return back()->with('success', "Book returned successfully! Fine collected: ₹{$fine}");
+        return back()->with('success', "Book returned successfully! Fine collected: ₹{$result['fine']}");
     }
 
     /**

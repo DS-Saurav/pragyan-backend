@@ -4,12 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SchoolEvent;
+use App\Models\User;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class SchoolEventController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): View
     {
+        $this->authorizeCalendarViewing();
+
         $tab = $request->get('tab', 'all');
 
         $query = SchoolEvent::orderBy('date', 'asc');
@@ -33,8 +39,11 @@ class SchoolEventController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
+        $this->authorizeCalendarManagement();
+        $this->authorizePublicCalendarMutation($request->boolean('is_public'));
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'date' => 'required|date',
@@ -42,13 +51,21 @@ class SchoolEventController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        SchoolEvent::create($validated);
+        // The checkbox is only present in the request when ticked; an
+        // untouched checkbox must normalize to false, never to the old value.
+        SchoolEvent::create([
+            ...$validated,
+            'is_public' => $request->boolean('is_public'),
+        ]);
 
         return back()->with('success', 'Calendar event added successfully!');
     }
 
-    public function update(Request $request, SchoolEvent $schoolEvent)
+    public function update(Request $request, SchoolEvent $schoolEvent): RedirectResponse
     {
+        $this->authorizeCalendarManagement();
+        $this->authorizePublicCalendarMutation($schoolEvent->is_public || $request->boolean('is_public'));
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'date' => 'required|date',
@@ -56,15 +73,58 @@ class SchoolEventController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $schoolEvent->update($validated);
+        $schoolEvent->update([
+            ...$validated,
+            'is_public' => $request->boolean('is_public'),
+        ]);
 
         return back()->with('success', 'Calendar event updated successfully!');
     }
 
-    public function destroy(SchoolEvent $schoolEvent)
+    public function destroy(SchoolEvent $schoolEvent): RedirectResponse
     {
+        $this->authorizeCalendarManagement();
+        $this->authorizePublicCalendarMutation($schoolEvent->is_public);
+
         $schoolEvent->delete();
 
         return back()->with('success', 'Event deleted successfully!');
+    }
+
+    private function authorizeCalendarViewing(): void
+    {
+        $this->requireStaffActor();
+        Gate::authorize('calendar.view');
+    }
+
+    private function authorizeCalendarManagement(): void
+    {
+        $this->requireStaffActor();
+        Gate::authorize('calendar.manage');
+    }
+
+    /**
+     * Calendar coordinators retain management of private internal dates. Any
+     * action that can create, alter, unpublish, or remove a public date stays
+     * with the administrator until the owner explicitly changes that policy.
+     */
+    private function authorizePublicCalendarMutation(bool $touchesPublicContent): void
+    {
+        if ($touchesPublicContent) {
+            Gate::authorize('public_calendar.manage');
+        }
+    }
+
+    private function requireStaffActor(): User
+    {
+        $user = auth()->user();
+        $staffRoles = array_values(array_diff(
+            array_keys((array) config('permissions.role_labels', [])),
+            ['student', 'parent'],
+        ));
+
+        abort_unless($user instanceof User && $user->hasAnyRole($staffRoles), 403);
+
+        return $user;
     }
 }

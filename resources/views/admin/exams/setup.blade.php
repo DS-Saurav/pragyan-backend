@@ -31,13 +31,13 @@
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
             <div>
                 <a href="{{ route('admin.exams.index') }}" class="text-xs text-indigo-600 font-semibold">← Back to Exams</a>
-                <h2 class="text-xl font-bold text-gray-900">⚙️ Exam Setup — {{ $exam->name }}
+                <h2 class="text-xl font-bold text-gray-900"><i class="bi bi-gear"></i> Exam Setup — {{ $exam->name }}
                     <span class="text-sm font-medium text-gray-500">({{ $exam->academic_year }})</span>
                 </h2>
-                <p class="text-xs text-gray-500">Choose a class, then set each subject's full marks, pass marks and date.</p>
+                <p class="text-xs text-gray-500">Choose a class, then set each subject's full marks, pass marks, credit hours and date.</p>
             </div>
             <a href="{{ route('admin.marks.index', ['exam_id' => $exam->id, 'class_id' => $class?->id]) }}"
-                class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg">📝 Go to Marks Entry</a>
+                class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg"><i class="bi bi-pencil-square"></i> Go to Marks Entry</a>
         </div>
 
         @if ($locked)
@@ -64,7 +64,7 @@
                         <form method="POST" action="{{ route('admin.exams.setup.load', $exam) }}">
                             @csrf <input type="hidden" name="class_id" value="{{ $class->id }}">
                             <button type="submit"
-                                class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">⬇️
+                                class="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg"><i class="bi bi-download"></i>
                                 Load subjects of this class</button>
                         </form>
 
@@ -115,6 +115,8 @@
                                     <th class="px-4 py-3">Theory Pass</th>
                                     <th class="px-4 py-3">Practical Full</th>
                                     <th class="px-4 py-3">Practical Pass</th>
+                                    <th class="px-4 py-3" @if (! ($creditHoursReady ?? true)) title="Entry is disabled until the pending exam_subjects.credit_hours migration is applied" @endif>Credit Hours{{ ($creditHoursReady ?? true) ? '' : ' (pending)' }}</th>
+
                                     <th class="px-4 py-3">Total</th>
                                     <th class="px-4 py-3">Marks</th>
                                     <th class="px-4 py-3 text-right"></th>
@@ -158,6 +160,12 @@
                                                 name="rows[{{ $r->id }}][practical_pass]"
                                                 value="{{ $n($r->practical_pass) }}" @disabled($locked)
                                                 class="text-xs border rounded-lg p-2 w-20"></td>
+                                        <td class="px-4 py-2"><input type="number" step="0.01" min="0.01" max="99.99"
+                                                name="rows[{{ $r->id }}][credit_hours]"
+                                                value="{{ $r->credit_hours !== null ? $n($r->credit_hours) : '' }}"
+                                                title="Unset by default; a value must be positive (e.g. 4 or 3.75). 1 credit hour = 32 teaching hours."
+                                                @disabled($locked || ! ($creditHoursReady ?? true))
+                                                class="text-xs border rounded-lg p-2 w-20 {{ ($creditHoursReady ?? true) ? '' : 'bg-gray-100 text-gray-400' }}"></td>
                                         <td class="px-4 py-3 font-bold">{{ $n($r->full_marks) }}</td>
                                         <td class="px-4 py-3">
                                             <span
@@ -167,13 +175,13 @@
                                             @unless ($locked)
                                                 <button type="submit" form="remove-{{ $r->id }}"
                                                     class="p-1 hover:text-rose-600" title="Remove"
-                                                    onclick="return confirm('Remove this subject? Marks already entered for it will be deleted.');">🗑️</button>
+                                                    onclick="return confirm('Remove this subject? Marks already entered for it will be deleted.');"><i class="bi bi-trash"></i></button>
                                             @endunless
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">No subjects yet.
+                                        <td colspan="12" class="px-4 py-8 text-center text-gray-500">No subjects yet.
                                             Click "Load subjects of this class".</td>
                                     </tr>
                                 @endforelse
@@ -184,11 +192,18 @@
                     <p class="text-[11px] text-gray-400 mt-2">Leave Practical Full at 0 for subjects with no practical or
                         internal marks. A student must reach both the theory and the practical pass marks to pass a subject.
                     </p>
+                    @if (! ($creditHoursReady ?? true))
+                        <p class="text-[11px] text-amber-600 mt-1 bg-amber-50 rounded-lg px-3 py-2 inline-block">
+                            Credit-hour entry is disabled until the pending <code>exam_subjects.credit_hours</code>
+                            migration is applied (see the migration readiness report). Submitted values cannot be
+                            stored yet, so the field is intentionally read-only here.
+                        </p>
+                    @endif
 
                     @if ($rows->isNotEmpty() && !$locked)
                         <div class="flex justify-end mt-4">
                             <button type="submit"
-                                class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow">💾
+                                class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow"><i class="bi bi-save"></i>
                                 Save Setup</button>
                         </div>
                     @endif
@@ -203,7 +218,7 @@
 
                 @if ($rows->isNotEmpty() && !$locked && $classes->count() > 1)
                     <details class="mt-6 border rounded-xl p-4 bg-gray-50">
-                        <summary class="text-xs font-bold cursor-pointer">📋 Copy this class's setup to other classes
+                        <summary class="text-xs font-bold cursor-pointer"><i class="bi bi-clipboard"></i> Copy this class's setup to other classes
                         </summary>
                         <form method="POST" action="{{ route('admin.exams.setup.copy', $exam) }}" class="mt-3">
                             @csrf <input type="hidden" name="class_id" value="{{ $class->id }}">

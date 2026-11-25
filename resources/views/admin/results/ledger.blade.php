@@ -97,7 +97,7 @@
 </head>
 
 <body>
-    <div class="toolbar"><button onclick="window.print()">🖨️ Print</button></div>
+    <div class="toolbar"><button onclick="window.print()"><i class="bi bi-printer"></i> Print</button></div>
 
     <h1>{{ config('app.name') }}</h1>
     <div class="sub">
@@ -136,7 +136,7 @@
                     @endforeach
                     <td><b>{{ $n($row['total']) }}</b></td>
                     <td>{{ number_format($row['percent'], 1) }}</td>
-                    <td>{{ number_format($row['gpa'], 2) }}</td>
+                    <td>{{ number_format($row['gpa'], 2) }}@if (($row['gpa_basis'] ?? 'unweighted') !== 'credit_hour')<small> (unweighted)</small>@endif</td>
                     <td>{{ $row['division'] }}</td>
                     <td>{{ $row['rank'] ?? '—' }}</td>
                     <td class="{{ $row['result'] === 'FAIL' ? 'fail' : '' }}"><b>{{ $row['result'] }}</b></td>

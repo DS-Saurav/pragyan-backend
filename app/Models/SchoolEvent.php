@@ -14,5 +14,10 @@ class SchoolEvent extends Model
         'date',
         'type',
         'description',
+        'is_public',
+    ];
+
+    protected $casts = [
+        'is_public' => 'boolean',
     ];
 }

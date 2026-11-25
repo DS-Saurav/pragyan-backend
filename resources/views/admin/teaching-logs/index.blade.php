@@ -42,7 +42,7 @@
         @endif
 
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4">
-            <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2">📖 Teaching Logbook</h2>
+            <h2 class="text-xl font-bold text-gray-900 flex items-center gap-2"><i class="bi bi-book"></i> Teaching Logbook</h2>
             <button type="button" id="openCreateBtn"
                 class="no-print inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
                 + Add Log Entry
@@ -55,13 +55,13 @@
             <div class="no-print flex flex-col lg:flex-row justify-between gap-4 mb-5 border-b pb-4">
                 <div class="flex items-center gap-2">
                     <a href="{{ route('admin.teaching-logs.csv', request()->query()) }}"
-                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow">📂
+                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-folder2-open"></i>
                         CSV</a>
                     <button type="button" onclick="window.print()" title="Choose 'Save as PDF' in the print dialog"
-                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow">📄
+                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-filetype-pdf"></i>
                         PDF</button>
                     <button type="button" onclick="window.print()"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow">🖨️
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-printer"></i>
                         PRINT</button>
                 </div>
 
@@ -189,13 +189,13 @@
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap space-x-1 no-print">
                                     <button type="button" class="edit-log-btn p-1 hover:text-indigo-600"
-                                        title="Edit">✏️</button>
+                                        title="Edit"><i class="bi bi-pencil"></i></button>
                                     <form action="{{ route('admin.teaching-logs.destroy', $log) }}" method="POST"
                                         class="inline" onsubmit="return confirm('Delete this log entry?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="p-1 hover:text-rose-600"
-                                            title="Delete">🗑️</button>
+                                            title="Delete"><i class="bi bi-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>

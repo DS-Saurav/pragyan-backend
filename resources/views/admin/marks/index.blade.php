@@ -62,7 +62,11 @@
             </div>
         @endif
 
-        <h2 class="no-print text-xl font-bold text-gray-900 mb-4">🏅 Results / Marks Entry</h2>
+        <h2 class="no-print text-xl font-bold text-gray-900 mb-4"><i class="bi bi-award"></i> Results / Marks Entry
+            <a href="{{ route('admin.marks.assessments') }}"
+                class="ml-3 align-middle text-xs font-bold text-indigo-600 hover:text-indigo-800">· Assessment
+                Indicators</a>
+        </h2>
 
         <!-- Step 1-3: choose exam, class, subject -->
         <form id="filterForm" method="GET" action="{{ route('admin.marks.index') }}"
@@ -143,23 +147,23 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" onclick="window.print()"
-                            class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg">🖨️
+                            class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg"><i class="bi bi-printer"></i>
                             Print A4</button>
                         @unless ($readonly)
                             <button type="submit" form="marksForm" name="action" value="draft"
-                                class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-xs font-bold rounded-lg">💾 Save
+                                class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-xs font-bold rounded-lg"><i class="bi bi-save"></i> Save
                                 Draft</button>
                             <button type="submit" form="marksForm" name="action" value="submit"
                                 class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg"
-                                onclick="return confirm('Submit marks for admin publishing?');">📤 Submit</button>
+                                onclick="return confirm('Submit marks for admin publishing?');"><i class="bi bi-box-arrow-up"></i> Submit</button>
                             <button type="submit" form="marksForm" name="action" value="lock"
                                 class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg"
-                                onclick="return confirm('Lock these marks? Nobody can edit them until unlocked.');">🔒
+                                onclick="return confirm('Lock these marks? Nobody can edit them until unlocked.');"><i class="bi bi-lock"></i>
                                 Lock</button>
                         @endunless
                         @if ($current->marks_status === 'locked' && $exam->status !== 'published')
                             <button type="submit" form="unlockForm"
-                                class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg">🔓
+                                class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg"><i class="bi bi-unlock"></i>
                                 Unlock</button>
                         @endif
                     </div>

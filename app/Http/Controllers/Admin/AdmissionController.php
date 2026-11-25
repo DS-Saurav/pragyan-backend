@@ -57,9 +57,16 @@ class AdmissionController extends Controller
 
     public function updateStatus(Request $request, Admission $admission)
     {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:registered,admitted,rejected'],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
         $admission->update([
-            'status' => $request->status,
-            'rejection_reason' => $request->rejection_reason
+            'status' => $validated['status'],
+            'rejection_reason' => $validated['status'] === 'rejected'
+                ? ($validated['rejection_reason'] ?? null)
+                : null,
         ]);
 
         return back()->with('success', 'Admission status updated successfully!');

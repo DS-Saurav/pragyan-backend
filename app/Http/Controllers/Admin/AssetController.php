@@ -13,13 +13,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AssetController extends Controller
 {
-    private const CATEGORIES = ['library', 'robotics', 'electronics', 'chemistry', 'physics', 'general'];
+    private const CATEGORIES = ['robotics', 'electronics', 'chemistry', 'physics', 'general'];
+
+    private const DEFAULT_CATEGORY = 'robotics';
 
     private const PER_PAGE_OPTIONS = [10, 25, 50];
 
     public function index(Request $request)
     {
-        $tab = $request->get('tab', 'library'); // Default tab
+        $tab = $request->get('tab', self::DEFAULT_CATEGORY);
 
         $query = Asset::query();
 
@@ -47,14 +49,10 @@ class AssetController extends Controller
         $assets = $query->with('loans.student')->latest()->paginate($perPage)->withQueryString();
 
         // Counts for tabs
-        $counts = [
-            'library' => Asset::where('category', 'library')->count(),
-            'robotics' => Asset::where('category', 'robotics')->count(),
-            'electronics' => Asset::where('category', 'electronics')->count(),
-            'chemistry' => Asset::where('category', 'chemistry')->count(),
-            'physics' => Asset::where('category', 'physics')->count(),
-            'general' => Asset::where('category', 'general')->count(),
-        ];
+        $counts = [];
+        foreach (self::CATEGORIES as $category) {
+            $counts[$category] = Asset::where('category', $category)->count();
+        }
 
         $students = Student::where('status', 'active')->orderBy('first_name')->get();
 
@@ -181,55 +179,6 @@ class AssetController extends Controller
         };
     }
 
-    // Barcode Quick Return Handler for USB Scanners
-    public function barcodeReturn(Request $request)
-    {
-        $request->validate([
-            'asset_tag' => 'required|string',
-        ]);
-
-        $tag = trim($request->asset_tag);
-        $asset = Asset::where('asset_tag', $tag)->first();
-
-        if (! $asset) {
-            return back()->with('error', "No item found with Barcode/Tag ID: '{$tag}'");
-        }
-
-        // Get all active loans for this item
-        $activeLoans = AssetLoan::where('asset_id', $asset->id)
-            ->where('status', 'issued')
-            ->with('student')
-            ->get();
-
-        if ($activeLoans->isEmpty()) {
-            return back()->with('error', "Item '{$tag}' is already fully in inventory (not issued to anyone)!");
-        }
-
-        // If only ONE copy is out, return it instantly!
-        if ($activeLoans->count() === 1) {
-            $loan = $activeLoans->first();
-
-            DB::transaction(function () use ($loan, $asset) {
-                $loan->update(['status' => 'returned']);
-                $newAvailable = min($asset->quantity, $asset->available_quantity + 1);
-                $asset->update([
-                    'available_quantity' => $newAvailable,
-                    'status' => 'in_use',
-                ]);
-            });
-
-            $studentName = $loan->student ? $loan->student->first_name.' '.$loan->student->last_name.' (Roll: '.($loan->student->roll_number ?? 'N/A').')' : 'Student';
-
-            return back()->with('success', "Returned successfully! Item '{$tag}' received from {$studentName}.");
-        }
-
-        // If MULTIPLE copies are out, DO NOT use a queue! Prompt the admin to pick the exact student.
-        return back()
-            ->with('multiple_loans_tag', $tag)
-            ->with('active_loans_prompt', $activeLoans)
-            ->with('error', "Multiple copies of '{$tag}' are out on loan. Please select the correct student from the prompt below:");
-    }
-
     public function destroy(Asset $asset)
     {
         $asset->delete();
@@ -239,7 +188,7 @@ class AssetController extends Controller
 
     public function exportCsv(Request $request): StreamedResponse
     {
-        $tab = $request->get('tab', 'library');
+        $tab = $request->get('tab', self::DEFAULT_CATEGORY);
         $assets = Asset::where('category', $tab)->with('loans.student')->latest()->get();
         $filename = "inventory-{$tab}-".now()->format('Y-m-d').'.csv';
 

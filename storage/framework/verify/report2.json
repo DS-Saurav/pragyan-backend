@@ -1,0 +1,31 @@
+{
+  "step": [
+    "shot:09-accountant-1280.png"
+  ],
+  "events": [],
+  "authed": true,
+  "checks": {
+    "overflowPx": 0,
+    "seesFees": true,
+    "seesPayroll": true,
+    "seesAccounts": true,
+    "noUsers": true,
+    "noSettings": true,
+    "noAdmissions": true,
+    "noDiscipline": true,
+    "noExams": true,
+    "noStudentsAdmin": true,
+    "kpiTexts": [
+      "TOTAL STUDENTS |  | 6",
+      "PENDING ADMISSIONS |  | 1",
+      "OPEN FEE RECEIPTS |  | 1",
+      "CLASSES & SECTIONS |  | 3"
+    ],
+    "kpiHasFeeCard": true,
+    "kpiNoUsers": true,
+    "kpiNoDiscipline": true,
+    "quickNoSchoolSettings": true,
+    "quickHasFeesCollection": true
+  },
+  "sessionFiles": 1
+}

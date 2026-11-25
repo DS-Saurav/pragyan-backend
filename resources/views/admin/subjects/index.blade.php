@@ -26,7 +26,7 @@
             <!-- Header Row -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">📚 Subjects Management</h3>
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2"><i class="bi bi-book"></i> Subjects Management</h3>
                     <p class="text-xs text-gray-500">Manage curriculum subjects, course codes, max marks, and assigned
                         classes.</p>
                 </div>
@@ -41,11 +41,11 @@
                 <div class="flex items-center gap-2">
                     <a href="{{ route('admin.subjects.csv') }}"
                         class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow transition flex items-center gap-1">
-                        📂 CSV
+                        <i class="bi bi-folder2-open"></i> CSV
                     </a>
                     <button type="button" onclick="window.print()"
                         class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow transition flex items-center gap-1">
-                        🖨️ PRINT
+                        <i class="bi bi-printer"></i> PRINT
                     </button>
                 </div>
 
@@ -106,7 +106,7 @@
                                         data-name="{{ $subject->name }}" data-code="{{ $subject->code }}"
                                         data-max="{{ $subject->max_marks }}" data-pass="{{ $subject->passing_marks }}"
                                         data-classes="{{ json_encode($assigned) }}">
-                                        ✏️
+                                        <i class="bi bi-pencil"></i>
                                     </button>
                                     <form action="{{ route('admin.subjects.destroy', $subject->id) }}" method="POST"
                                         class="inline" onsubmit="return confirm('Delete this subject?');">
@@ -114,7 +114,7 @@
                                         @method('DELETE')
                                         <button type="submit" class="p-1 text-gray-400 hover:text-rose-600 transition"
                                             title="Delete">
-                                            🗑️
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
                                 </td>

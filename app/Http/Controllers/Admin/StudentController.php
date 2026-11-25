@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\FeeReceipt;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\StudentMeasurement;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -95,6 +97,10 @@ class StudentController extends Controller
             'last_name' => 'required|string|max:255',
             'gender' => 'required|string',
             'dob' => 'required|date',
+            // Bikram Sambat DOB (Stage P3H): stored as a plain string and
+            // validated independently of `dob` - saving one never overwrites
+            // the other (the update below only writes validated keys).
+            'dob_bs' => [$this->dobBsRule($request)],
             'class_applied' => 'required|string',
             'academic_year' => 'nullable|string', // <-- Added validation for academic year
             'roll_no' => 'nullable|integer',
@@ -133,6 +139,10 @@ class StudentController extends Controller
             'last_name' => 'required|string|max:255',
             'gender' => 'required|string',
             'dob' => 'required|date',
+            // See store(): independent of `dob`; validation failure aborts
+            // before update(), so the A.D. date and all other fields keep
+            // their stored values untouched.
+            'dob_bs' => [$this->dobBsRule($request)],
             'class_applied' => 'required|string',
             'academic_year' => 'nullable|string',
             'roll_no' => 'nullable|integer',
@@ -185,11 +195,134 @@ class StudentController extends Controller
         return back()->with('success', 'Students promoted successfully!');
     }
 
+    /**
+     * Create or update the ONE authoritative health-measurement record
+     * for this student for a specific academic year (Stage P3G).
+     *
+     * - Bounds (and decimal precision) come from config/school.php
+     *   "measurements" so they stay configurable.
+     * - Blank input = the measurement stays UNSET (stored as null);
+     *   zero is a real, rejectable value because min bounds are positive.
+     * - The unique(student_id, academic_year) constraint plus
+     *   updateOrCreate make this idempotent; records of other academic
+     *   years are never touched, so history survives promotion.
+     */
+    public function saveMeasurement(Request $request, Student $student)
+    {
+        $bounds = config('school.measurements', []);
+        $heightMin = (float) ($bounds['height_cm_min'] ?? 30);
+        $heightMax = (float) ($bounds['height_cm_max'] ?? 230);
+        $weightMin = (float) ($bounds['weight_kg_min'] ?? 1);
+        $weightMax = (float) ($bounds['weight_kg_max'] ?? 200);
+        $places = max(0, (int) ($bounds['decimal_places'] ?? 1));
+        // Regex anchors the exact decimal precision: ^\d+(\.\d{0,N})?$
+        // (chars after the last allowed decimal place are rejected).
+        $decimalPattern = $places > 0
+            ? 'regex:/^\d+(\.\d{1,'.$places.'})?$/'
+            : 'regex:/^\d+$/';
+
+        $validated = $request->validateWithBag('measurements', [
+            'academic_year' => 'required|string|max:20',
+            // Blank (absent) means unset - never zero (mins are positive
+            // and finite), negatives (leading minus does not match the
+            // regex) and bad precision are rejected.
+            'height_cm' => ['nullable', 'numeric', "min:$heightMin", "max:$heightMax", $decimalPattern],
+            'weight_kg' => ['nullable', 'numeric', "min:$weightMin", "max:$weightMax", $decimalPattern],
+            // Recorded only when it fits the existing workflow; optional.
+            'measured_on' => ['nullable', 'date', 'before_or_equal:today'],
+        ]);
+
+        // updateOrCreate keyed on the unique pair - idempotent either way.
+        // The form submits an authoritative snapshot for the chosen year:
+        // blank fields clear to unset (null), they are never treated as 0
+        // and they never inherit a previous value.
+        StudentMeasurement::updateOrCreate(
+            ['student_id' => $student->id, 'academic_year' => $validated['academic_year']],
+            [
+                'height_cm' => $validated['height_cm'] ?? null,
+                'weight_kg' => $validated['weight_kg'] ?? null,
+                'measured_on' => $validated['measured_on'] ?? null,
+            ]
+        );
+
+        return back()
+            ->with('measurements_academic_year', $validated['academic_year'])
+            ->with('success', "Health measurements for {$validated['academic_year']} saved successfully!");
+    }
+
     public function destroy(Student $student)
     {
+        // fee_receipts.student_id is ON DELETE RESTRICT: deleting the student
+        // would raise a FK error (HTTP 500) while receipts exist, so block it
+        // here with a friendly message instead (receipts are soft-deleted,
+        // so they still count).
+        if (FeeReceipt::withTrashed()->where('student_id', $student->id)->exists()) {
+            return back()->withErrors([
+                'student' => 'This student has fee receipts, so they cannot be deleted. Set their status to Transferred or Passed out instead.',
+            ]);
+        }
+
         $student->delete();
 
         return back()->with('success', 'Student record removed successfully!');
+    }
+
+    /**
+     * Validation rule for the student's Bikram Sambat date of birth
+     * (Stage P3H). The strongest honest validation without calendar data:
+     *
+     * - Format `YYYY-MM-DD` (e.g. 2069-01-15), optional month/day padding.
+     * - Year within configurable bounds (config "school.dob_bs").
+     * - Month 1-12; day 1-32, because B.S. months historically have between
+     *   29 and 32 days depending on the published calendar (patro).
+     *   WHICH days a given B.S. year/month actually contains is NOT
+     *   validated - the app has no verified Nepali-calendar dependency and
+     *   none is built here (an incomplete converter would be dishonest).
+     * - When the A.D. `dob` is also present and parseable, the B.S. year must
+     *   be 56 or 57 years after the A.D. birth year (a wide-margin sanity
+     *   check: the B.S. new year falls around mid-April). Claims nothing
+     *   beyond that.
+     *
+     * Runs BEFORE any write; a failure aborts the request, so the A.D.
+     * `dob` and unrelated fields can never be partially overwritten.
+     */
+    private function dobBsRule(Request $request): \Closure
+    {
+        $minYear = (int) config('school.dob_bs.min_year', 2000);
+        $maxYear = (int) config('school.dob_bs.max_year', 2100);
+        $dob = $request->input('dob');
+
+        return function (string $attribute, mixed $value, \Closure $fail) use ($dob, $minYear, $maxYear) {
+            $value = is_string($value) ? trim($value) : '';
+
+            if ($value === '') {
+                return; // nullable: a blank field keeps the B.S. date unset
+            }
+
+            if (! preg_match('/^(\d{4})-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[0-2])$/', $value, $m)) {
+                $fail('The B.S. date of birth must be given as year-month-day in the Bikram Sambat calendar, e.g. 2069-01-15.');
+
+                return;
+            }
+
+            [$year, $month, $day] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+
+            if ($year < $minYear || $year > $maxYear) {
+                $fail("The B.S. year must be between {$minYear} and {$maxYear}.");
+
+                return;
+            }
+
+            $adYear = null;
+            if (is_string($dob) && preg_match('/^(\d{4})-/', $dob, $dm)) {
+                $adYear = (int) $dm[1];
+                if (! in_array($year - $adYear, [56, 57], true)) {
+                    $fail("The B.S. year {$year} does not plausibly match the A.D. birth year {$adYear}: the B.S. year must be 56 or 57 years later.");
+
+                    return;
+                }
+            }
+        };
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
@@ -17,6 +18,11 @@ class Student extends Model
         'last_name',
         'gender',
         'dob',
+        // Bikram Sambat DOB as a plain string (e.g. "2069-01-15").
+        // Deliberately NOT date-cast: a B.S. date must never be parsed,
+        // sorted or formatted as a Gregorian date. No automatic
+        // conversion to/from the A.D. `dob` is performed.
+        'dob_bs',
         'nationality',
         'languages_spoken',
         'curriculum',
@@ -76,6 +82,11 @@ class Student extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function parents(): BelongsToMany
+    {
+        return $this->belongsToMany(ParentModel::class, 'parent_student', 'student_id', 'parent_id');
     }
 
     public function getFullNameAttribute(): string

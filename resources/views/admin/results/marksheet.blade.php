@@ -3,11 +3,51 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Marksheet — {{ $exam->name }} — {{ $class->name }}</title>
+    <title>Grade Sheet - {{ $exam->name }} - {{ $class->name }}</title>
     @php
-        $n = fn($v) => \App\Services\ResultService::n($v);
-        $schoolName = config('app.name');
-        $schoolAddress = 'School address · Phone · Email'; // change this line
+        use App\Models\Attendance;
+        use App\Services\GradeScale;
+        use App\Services\MarksheetLayout;
+        use App\Services\ResultService;
+
+        $n = fn($v) => ResultService::n($v);
+        $layout = MarksheetLayout::load();
+
+        // School branding: prefer the keys the admin Settings page saves,
+        // fall back to the legacy marksheet-only keys.
+        $schoolName = \App\Models\Setting::get('school_name', config('app.name', 'Pragyan Pathashala'));
+        $schoolAddress = \App\Models\Setting::get('address', \App\Models\Setting::get('school_address', ''));
+        $schoolPhone = \App\Models\Setting::get('phone', \App\Models\Setting::get('school_phone', ''));
+        $schoolEmail = \App\Models\Setting::get('email', \App\Models\Setting::get('school_email', ''));
+        $schoolLogo = \App\Models\Setting::get('logo_url', \App\Models\Setting::get('school_logo'));
+        $logoUrl = $schoolLogo ? \App\Support\Photo::url($schoolLogo) : null;
+
+        // Attendance over the exam window (or all recorded days when the exam
+        // has no dates). The window is the exam's start_date/end_date; when
+        // neither is set, every recorded day for the class counts.
+        $attendanceBase = Attendance::where('school_class_id', $class->id)
+            ->when($exam->start_date, fn ($q, $d) => $q->whereDate('date', '>=', $d->toDateString()))
+            ->when($exam->end_date, fn ($q, $d) => $q->whereDate('date', '<=', $d->toDateString()));
+        // The class's recorded attendance dates, as Y-m-d strings - the raw
+        // material for admission-aware per-student denominators. The
+        // denominator is CLASS-RECORDED dates, not every instructional day.
+        $dateStr = fn ($d) => $d instanceof \Carbon\CarbonInterface ? $d->toDateString() : (string) $d;
+        $attendanceDates = (clone $attendanceBase)->distinct()->orderBy('date')->pluck('date')->map($dateStr)->values();
+        $attendanceTotal = $attendanceDates->count();
+        // Per-student distinct dates within the window: of ANY status
+        // (coverage evidence), and of present/late (attendance evidence).
+        // Pre-admission rows stay OUT of both numerator and eligible
+        // denominator - the admission-aware filter is applied per student
+        // in the attendance section, where students.admission_date lives.
+        $attendanceRows = (clone $attendanceBase)->get(['student_id', 'date', 'status']);
+        $distinctDates = fn ($rows) => $rows->pluck('date')->map($dateStr)->unique()->values();
+        $attendanceMarked = $attendanceRows
+            ->groupBy('student_id')
+            ->map($distinctDates);
+        $attendancePresent = $attendanceRows
+            ->whereIn('status', [Attendance::PRESENT, Attendance::LATE])
+            ->groupBy('student_id')
+            ->map($distinctDates);
     @endphp
     <style>
         * {
@@ -16,8 +56,8 @@
 
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
-            color: #111;
+            font-size: 11px;
+            color: #000;
             margin: 0;
             background: #e5e7eb;
         }
@@ -27,86 +67,175 @@
             background: #0f172a;
             color: #fff;
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
         }
 
         .toolbar button {
-            padding: 6px 14px;
-            font-weight: bold;
-            cursor: pointer;
+            background: #1e40af;
             border: 0;
-            border-radius: 6px;
+            color: #fff;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
         }
 
         .sheet {
+            position: relative;
             width: 210mm;
             min-height: 297mm;
-            margin: 12px auto;
-            padding: 14mm;
+            padding: 10mm 9mm;
+            margin: 10px auto;
             background: #fff;
-            border: 2px solid #111;
-            position: relative;
-            page-break-after: always;
+            border: 4px double #1e40af;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
         }
 
-        .sheet:last-child {
-            page-break-after: auto;
+        .watermark {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 0 24mm 60mm 0;
+            font-size: 54px;
+            font-weight: bold;
+            color: rgba(30, 64, 175, .10);
+            transform: rotate(-25deg);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .head {
-            text-align: center;
-            border-bottom: 2px solid #111;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 6px;
+            align-items: center;
         }
 
-        .head h1 {
-            margin: 0;
-            font-size: 22px;
-            text-transform: uppercase;
+        .head .brand {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1e40af;
         }
 
         .head p {
             margin: 2px 0;
+            font-size: 10px;
         }
 
-        .title {
+        .head .crest,
+        .photo {
+            width: 64px;
+            height: 70px;
+        }
+
+        .head .crest,
+        .photo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid #1e3a8a;
+            background: #f8fafc;
+        }
+
+        .head .crest img,
+        .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .head .photo {
+            justify-self: end;
+        }
+
+        .photo img {
+            object-fit: cover;
+        }
+
+        .head-note {
+            font-size: 10px;
+            line-height: 1.35;
+        }
+
+        .exam-title {
             text-align: center;
             font-weight: bold;
-            font-size: 15px;
-            margin: 8px 0;
+            font-size: 13px;
+            margin: 6px 0;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: #1e40af;
         }
 
-        .info {
-            width: 100%;
-            margin-bottom: 10px;
+        .grade-sheet-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 4px 0 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-decoration: underline;
         }
 
-        .info td {
-            padding: 3px 4px;
+        .identity {
+            margin-bottom: 8px;
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        .identity .pair {
+            display: inline-block;
+            margin-right: 18px;
+        }
+
+        .identity .label {
+            font-weight: bold;
+        }
+
+        .identity .val {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .identity .na {
+            text-decoration: none;
+            color: #64748b;
         }
 
         table.marks {
             width: 100%;
             border-collapse: collapse;
+            border: 1px solid #1e40af;
         }
 
         table.marks th,
         table.marks td {
-            border: 1px solid #111;
-            padding: 6px 5px;
+            border: 1px solid #1e40af;
+            padding: 4px 3px;
             text-align: center;
+            font-size: 10px;
         }
 
         table.marks th {
-            background: #f1f5f9;
+            background: #eff6ff;
+            font-weight: bold;
         }
 
         table.marks td.left {
             text-align: left;
+        }
+
+        table.marks td .sub {
+            display: block;
+            font-size: 9px;
+            color: #334155;
+        }
+
+        table.marks .merged-cell {
+            font-weight: bold;
         }
 
         .fail {
@@ -114,57 +243,113 @@
             font-weight: bold;
         }
 
-        .summary {
+        .gpa-summary {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 6px;
+            border: 2px solid #1e40af;
         }
 
-        .summary td {
-            border: 1px solid #111;
-            padding: 6px 8px;
-        }
-
-        .summary td.k {
-            background: #f1f5f9;
+        .gpa-summary td {
+            border: 1px solid #1e40af;
+            padding: 5px 8px;
+            text-align: center;
             font-weight: bold;
-            width: 16%;
-        }
-
-        .scale {
-            margin-top: 10px;
+            background: #eff6ff;
             font-size: 10px;
         }
 
-        .scale span {
-            display: inline-block;
-            border: 1px solid #999;
-            padding: 2px 6px;
-            margin: 1px;
+        .assessment,
+        .meta-row {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            border: 1px solid #1e40af;
         }
 
-        .sign {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 60px;
+        .assessment th,
+        .assessment td,
+        .meta-row th,
+        .meta-row td {
+            border: 1px solid #1e40af;
+            padding: 3px 5px;
+            font-size: 10px;
+        }
+
+        .assessment th,
+        .meta-row th {
+            background: #eff6ff;
+            text-align: left;
+        }
+
+        .assessment td.grade {
+            text-align: center;
+            width: 60px;
+        }
+
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 230px;
+            gap: 12px;
+            margin-top: 8px;
+            align-items: start;
+        }
+
+        .notes {
+            font-size: 9px;
+            line-height: 1.4;
+        }
+
+        .notes h4 {
+            margin: 4px 0;
+            font-size: 10px;
+        }
+
+        .notes ul {
+            margin: 2px 0;
+            padding-left: 14px;
+        }
+
+        .scale-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #1e40af;
+            font-size: 9px;
+        }
+
+        .scale-table th,
+        .scale-table td {
+            border: 1px solid #1e40af;
+            padding: 2px 4px;
             text-align: center;
         }
 
-        .sign div {
-            width: 28%;
-            border-top: 1px solid #111;
-            padding-top: 4px;
+        .scale-table th {
+            background: #eff6ff;
         }
 
-        .stamp {
-            position: absolute;
-            right: 14mm;
-            top: 150mm;
-            font-size: 64px;
-            color: rgba(185, 28, 28, .12);
-            transform: rotate(-25deg);
+        .issue-date {
+            margin-top: 24px;
+            font-size: 11px;
+        }
+
+        .issue-date .val {
             font-weight: bold;
-            pointer-events: none;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 24px;
+            margin-top: 44px;
+            text-align: center;
+            font-size: 10px;
+        }
+
+        .signatures .sig-line {
+            border-top: 1px solid #111;
+            padding-top: 4px;
+            font-weight: bold;
         }
 
         @page {
@@ -183,7 +368,13 @@
 
             .sheet {
                 margin: 0;
-                border: 2px solid #111;
+                box-shadow: none;
+                page-break-after: always;
+            }
+
+            table.marks tr,
+            .gpa-summary tr {
+                page-break-inside: avoid;
             }
         }
     </style>
@@ -191,112 +382,43 @@
 
 <body>
     <div class="toolbar">
-        <button onclick="window.print()">🖨️ Print</button>
+        <button onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
         <span>{{ count($rows) }} marksheet(s) · {{ $exam->name }} · {{ $class->name }}</span>
     </div>
 
     @forelse ($rows as $row)
         <div class="sheet">
-            @if ($exam->status !== 'published')
-                <div class="stamp">PROVISIONAL</div>
+            @php
+                $student = $row['student'];
+                // Assessment indicators (Stage P3I): ratings saved per
+                // EXAM and student - keyed by the layout's STABLE indicator
+                // key, so renaming a label never loses a rating. Unset
+                // indicators render the explicit "Not recorded" state in
+                // the assessment section.
+                $studentAssessments = \App\Models\StudentAssessment::where('exam_id', $exam->id)
+                    ->where('student_id', $student->id)
+                    ->pluck('rating', 'indicator_key');
+                // Height/weight (Stage P3G): measurements are per academic
+                // year. Resolve the record for THE EXAM'S OWN academic_year
+                // via exact match - never a newer/older year's row, never a
+                // fabricated value. Null height/weight (or no record at
+                // all) renders as the explicit "Not recorded" state in the
+                // attendance/height-weight section.
+                $studentMeasurement = \App\Models\StudentMeasurement::where('student_id', $student->id)
+                    ->where('academic_year', $exam->academic_year)
+                    ->first();
+                $heightCm = $studentMeasurement?->height_cm;
+                $weightKg = $studentMeasurement?->weight_kg;
+            @endphp
+            @if (! $layout->showWatermark && $exam->status !== 'published')
+                <div class="watermark">PROVISIONAL</div>
+            @elseif ($layout->showWatermark)
+                <div class="watermark">{{ $layout->watermarkText }}</div>
             @endif
 
-            <div class="head">
-                <h1>{{ $schoolName }}</h1>
-                <p>{{ $schoolAddress }}</p>
-            </div>
-
-            <div class="title">Grade Sheet — {{ $exam->name }} ({{ $exam->academic_year }})</div>
-
-            <table class="info">
-                <tr>
-                    <td><b>Student's Name:</b> {{ $row['name'] }}</td>
-                    <td><b>Class:</b> {{ $class->name }}</td>
-                </tr>
-                <tr>
-                    <td><b>Roll No.:</b> {{ $row['roll'] ?: '—' }} &nbsp;&nbsp; <b>Admission No.:</b>
-                        {{ $row['admission'] ?: '—' }}</td>
-                    <td><b>Date of Issue:</b> {{ now()->format('Y-m-d') }}</td>
-                </tr>
-            </table>
-
-            <table class="marks">
-                <thead>
-                    <tr>
-                        <th>S.N.</th>
-                        <th>Subject</th>
-                        <th>Full Marks</th>
-                        <th>Pass Marks</th>
-                        <th>Theory</th>
-                        <th>Practical</th>
-                        <th>Total</th>
-                        <th>Grade</th>
-                        <th>GP</th>
-                        <th>Remarks</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($subjects as $i => $es)
-                        @php $r = $row['subjects'][$es->id]; @endphp
-                        <tr>
-                            <td>{{ $i + 1 }}</td>
-                            <td class="left">{{ $es->subject->name ?? '' }}</td>
-                            <td>{{ $n($es->full_marks) }}</td>
-                            <td>{{ $n($es->theory_pass + $es->practical_pass) }}</td>
-                            <td class="{{ $r['entered'] && !$r['pass'] ? 'fail' : '' }}">
-                                {{ $r['absent'] ? 'AB' : ($es->theory_full > 0 ? $n($r['theory']) : '—') }}</td>
-                            <td>{{ $r['absent'] ? 'AB' : ($es->practical_full > 0 ? $n($r['practical']) : '—') }}</td>
-                            <td><b>{{ $r['absent'] ? 'AB' : ($r['entered'] ? $n($r['total']) : '—') }}</b></td>
-                            <td class="{{ $r['entered'] && !$r['pass'] ? 'fail' : '' }}"><b>{{ $r['grade'] }}</b>
-                            </td>
-                            <td>{{ $r['entered'] ? number_format($r['point'], 1) : '—' }}</td>
-                            <td>{{ $r['remark'] }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-            <table class="summary">
-                <tr>
-                    <td class="k">Total Marks</td>
-                    <td>{{ $n($row['total']) }} / {{ $n($row['full']) }}</td>
-                    <td class="k">Percentage</td>
-                    <td>{{ number_format($row['percent'], 2) }}%</td>
-                    <td class="k">GPA</td>
-                    <td>{{ number_format($row['gpa'], 2) }}</td>
-                </tr>
-                <tr>
-                    <td class="k">Overall Grade</td>
-                    <td>{{ $row['overall_grade'] }}</td>
-                    <td class="k">Division</td>
-                    <td>{{ $row['division'] }}</td>
-                    <td class="k">Rank</td>
-                    <td>{{ $row['rank'] ?? '—' }}</td>
-                </tr>
-                <tr>
-                    <td class="k">Result</td>
-                    <td colspan="5" class="{{ $row['result'] === 'FAIL' ? 'fail' : '' }}">
-                        <b>{{ $row['result'] }}</b>
-                        @if ($row['failed'])
-                            — not passed in: {{ implode(', ', $row['failed']) }}
-                        @endif
-                    </td>
-                </tr>
-            </table>
-
-            <div class="scale">
-                <b>Grading scale:</b>
-                @foreach (\App\Services\GradeScale::BANDS as [$min, $g, $gp, $remark])
-                    <span>{{ $min }}%+ = {{ $g }} ({{ number_format($gp, 1) }})</span>
-                @endforeach
-                <span>Below 35% / not passed = NG</span> <span>AB = Absent</span>
-            </div>
-
-            <div class="sign">
-                <div>Class Teacher</div>
-                <div>Exam Coordinator</div>
-                <div>Principal</div>
-            </div>
+            @foreach ($layout->order as $section)
+                @include('admin.results.marksheet.sections.'.$section)
+            @endforeach
         </div>
     @empty
         <div class="sheet">

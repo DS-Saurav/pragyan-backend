@@ -49,7 +49,7 @@
         @endif
 
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4">
-            <h2 class="text-xl font-bold text-gray-900">🛡️ Discipline Management</h2>
+            <h2 class="text-xl font-bold text-gray-900"><i class="bi bi-shield-check"></i> Discipline Management</h2>
             @can('discipline.report')
                 <button type="button" id="openCreateBtn"
                     class="no-print px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow">+
@@ -83,13 +83,13 @@
             <div class="no-print flex flex-col lg:flex-row justify-between gap-4 mb-5 border-b pb-4">
                 <div class="flex items-center gap-2">
                     <a href="{{ route('admin.discipline.csv', request()->query()) }}"
-                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow">📂
+                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-folder2-open"></i>
                         CSV</a>
                     <button type="button" onclick="window.print()" title="Choose 'Save as PDF' in the print dialog"
-                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow">📄
+                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-filetype-pdf"></i>
                         PDF</button>
                     <button type="button" onclick="window.print()"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow">🖨️
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow"><i class="bi bi-printer"></i>
                         PRINT</button>
                 </div>
 
@@ -279,7 +279,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap space-x-1 no-print">
                                     <button type="button" class="view-btn p-1 hover:text-indigo-600"
-                                        title="View details">👁️</button>
+                                        title="View details"><i class="bi bi-eye"></i></button>
 
                                     @can('discipline.manage')
                                         @unless ($inc->parent_notified)
@@ -287,22 +287,22 @@
                                                 class="inline" onsubmit="return confirm('Mark the parent as notified today?');">
                                                 @csrf @method('PATCH')
                                                 <button type="submit" class="p-1 hover:text-emerald-600"
-                                                    title="Mark parent notified">📞</button>
+                                                    title="Mark parent notified"><i class="bi bi-telephone"></i></button>
                                             </form>
                                         @endunless
 
                                         @if ($inc->status !== 'closed')
                                             <button type="button" class="close-btn p-1 hover:text-emerald-600"
-                                                title="Close case">✅</button>
+                                                title="Close case"><i class="bi bi-check2-circle"></i></button>
                                         @endif
                                     @endcan
 
                                     <a href="{{ route('admin.discipline.notice', $inc) }}" target="_blank"
-                                        class="p-1 hover:text-blue-600" title="Print parent notice">🖨️</a>
+                                        class="p-1 hover:text-blue-600" title="Print parent notice"><i class="bi bi-printer"></i></a>
 
                                     @can('discipline.manage')
                                         <button type="button" class="edit-btn p-1 hover:text-indigo-600"
-                                            title="Edit">✏️</button>
+                                            title="Edit"><i class="bi bi-pencil"></i></button>
                                     @endcan
 
                                     @can('discipline.delete')
@@ -310,7 +310,7 @@
                                             class="inline" onsubmit="return confirm('Delete this incident record?');">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="p-1 hover:text-rose-600"
-                                                title="Delete">🗑️</button>
+                                                title="Delete"><i class="bi bi-trash"></i></button>
                                         </form>
                                     @endcan
                                 </td>
@@ -756,7 +756,7 @@
 
                     var rep = document.getElementById('vRepeat');
                     if (p.history > 1) {
-                        rep.textContent = '⚠️ This student has ' + p.history +
+                        rep.textContent = 'Warning: This student has ' + p.history +
                             ' incidents on record. Consider a parent meeting or counselling.';
                         rep.classList.remove('hidden');
                     } else {

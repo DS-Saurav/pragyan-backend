@@ -146,7 +146,7 @@
                                 <td class="px-4 py-3 font-bold {{ $isLowStock ? 'text-rose-600' : 'text-gray-800' }}">
                                     {{ $item->quantity }} {{ $item->unit }}
                                     @if ($isLowStock)
-                                        <span class="ml-1" title="Low stock alert">⚠️</span>
+                                        <span class="ml-1" title="Low stock alert"><i class="bi bi-exclamation-triangle"></i></span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-gray-500 font-medium">

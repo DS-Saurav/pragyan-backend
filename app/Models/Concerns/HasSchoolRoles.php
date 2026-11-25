@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use App\Models\PublicEditorialGrant;
 use App\Models\UserRole;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -24,6 +25,14 @@ trait HasSchoolRoles
         return (bool) array_intersect($roles, $this->roleNames());
     }
 
+    /**
+     * @param  array<int, string>  $roles
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        return (bool) array_intersect($roles, $this->roleNames());
+    }
+
     public function hasPermission(string $permission): bool
     {
         foreach ($this->roleNames() as $role) {
@@ -34,6 +43,11 @@ trait HasSchoolRoles
             }
         }
 
-        return false;
+        return PublicEditorialGrant::allows($permission)
+            && PublicEditorialGrant::isEligibleRecipient($this)
+            && PublicEditorialGrant::query()
+                ->where('user_id', $this->getKey())
+                ->where('permission', $permission)
+                ->exists();
     }
 }

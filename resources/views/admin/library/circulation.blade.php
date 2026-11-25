@@ -36,7 +36,7 @@
         {{-- Header --}}
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">📕</span> Library — Issue / Return
+                <span class="text-xl"><i class="bi bi-book"></i></span> Library — Issue / Return
             </h3>
             <button type="button" onclick="openModal('issueBookModal')"
                 class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1.5">
@@ -61,13 +61,13 @@
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4 no-print">
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" onclick="exportCsv()"
-                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md">📄
+                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md"><i class="bi bi-filetype-pdf"></i>
                         CSV</button>
                     <button type="button" onclick="exportPdf()"
-                        class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md">📕
+                        class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md"><i class="bi bi-book"></i>
                         PDF</button>
                     <button type="button" onclick="window.print()"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md">🖨
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md"><i class="bi bi-printer"></i>
                         PRINT</button>
                     <span class="text-xs text-gray-500 ml-2">Show</span>
                     <select id="pageLen" class="text-xs border border-gray-300 rounded-md py-1.5 pl-2 pr-6">
@@ -178,7 +178,7 @@
         class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm p-4 pt-16">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
             <div class="bg-[#0f1b4c] text-white px-5 py-3 flex justify-between items-center">
-                <h3 class="text-sm font-bold flex items-center gap-2">➤ Issue Book</h3>
+                <h3 class="text-sm font-bold flex items-center gap-2"><i class="bi bi-arrow-right"></i> Issue Book</h3>
                 <button type="button" onclick="closeModal('issueBookModal')" class="text-xl leading-none">&times;</button>
             </div>
             <form action="{{ route('admin.library.circulation.issue') }}" method="POST" class="p-5 space-y-3">

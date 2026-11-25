@@ -10,7 +10,8 @@ class ExamSubject extends Model
 {
     protected $fillable = [
         'exam_id', 'school_class_id', 'subject_id', 'exam_date',
-        'theory_full', 'theory_pass', 'practical_full', 'practical_pass', 'marks_status', 'start_time', 'end_time'
+        'theory_full', 'theory_pass', 'practical_full', 'practical_pass', 'marks_status', 'start_time', 'end_time',
+        'credit_hours'
     ];
 
     protected $casts = [
@@ -21,6 +22,7 @@ class ExamSubject extends Model
         'theory_pass' => 'float',
         'practical_full' => 'float',
         'practical_pass' => 'float',
+        'credit_hours' => 'float',
     ];
 
     public function exam(): BelongsTo

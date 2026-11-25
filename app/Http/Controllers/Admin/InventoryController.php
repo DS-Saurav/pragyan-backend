@@ -102,8 +102,8 @@ class InventoryController extends Controller
                 'type' => 'in',
                 'quantity' => $validated['quantity'],
                 'balance_after' => $newBalance,
-                'supplier' => $validated['supplier'],
-                'bill_number' => $validated['bill_number'],
+                'supplier' => $validated['supplier'] ?? null,
+                'bill_number' => $validated['bill_number'] ?? null,
                 'note' => $validated['note'] ?? 'Restocked item',
                 'user_id' => auth()->id(),
             ]);
@@ -138,7 +138,7 @@ class InventoryController extends Controller
                 'balance_after' => $newBalance,
                 'recipient_type' => $validated['recipient_type'],
                 'recipient_name' => $validated['recipient_name'],
-                'note' => $validated['note'],
+                'note' => $validated['note'] ?? null,
                 'user_id' => auth()->id(),
             ]);
         });

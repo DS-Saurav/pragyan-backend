@@ -42,7 +42,7 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        👥 Parent-Teacher Meetings (PTM)
+                        <i class="bi bi-people"></i> Parent-Teacher Meetings (PTM)
                     </h3>
                     <p class="text-xs text-gray-500">Schedule PTM sessions, assign target classes, venues, and track
                         progress.</p>
@@ -126,13 +126,13 @@
                                 </td>
                                 <td class="px-4 py-3 text-right space-x-2">
                                     <button @click="openEdit({{ json_encode($meeting) }})"
-                                        class="text-indigo-600 hover:text-indigo-900 font-bold" title="Edit">✏️</button>
+                                        class="text-indigo-600 hover:text-indigo-900 font-bold" title="Edit"><i class="bi bi-pencil"></i></button>
                                     <form action="{{ route('admin.ptm.destroy', $meeting->id) }}" method="POST"
                                         class="inline">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" onclick="return confirm('Delete this PTM record?')"
-                                            class="text-rose-500 hover:text-rose-700 font-bold" title="Delete">🗑️</button>
+                                            class="text-rose-500 hover:text-rose-700 font-bold" title="Delete"><i class="bi bi-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
@@ -155,7 +155,7 @@
 
                 <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
                     <h3 class="text-sm font-bold flex items-center gap-2">
-                        👥 Schedule — Parent-Teacher Meeting
+                        <i class="bi bi-people"></i> Schedule — Parent-Teacher Meeting
                     </h3>
                     <button @click="showAddModal = false"
                         class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>
@@ -245,7 +245,7 @@
 
                 <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
                     <h3 class="text-sm font-bold flex items-center gap-2">
-                        ✏️ Edit / Update Status — Parent-Teacher Meeting
+                        <i class="bi bi-pencil"></i> Edit / Update Status — Parent-Teacher Meeting
                     </h3>
                     <button @click="showEditModal = false"
                         class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>

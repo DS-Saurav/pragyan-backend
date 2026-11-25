@@ -1,7 +1,9 @@
 @extends('layouts.admin')
 
+@section('title', 'School Calendar')
+
 @section('content')
-    <div class="py-6 max-w-7xl mx-auto sm:px-6 lg:px-8" x-data="{
+    <div class="ui-page" x-data="{
         showAddModal: false,
         showEditModal: false,
         editData: {
@@ -9,7 +11,8 @@
             title: '',
             date: '',
             type: 'event',
-            description: ''
+            description: '',
+            isPublic: false
         },
         openEdit(event) {
             this.editData = {
@@ -17,238 +20,268 @@
                 title: event.title,
                 date: event.date,
                 type: event.type,
-                description: event.description ?? ''
+                description: event.description ?? '',
+                isPublic: !!event.is_public
             };
             this.showEditModal = true;
         }
     }">
-
-        @if (session('success'))
-            <div
-                class="mb-4 bg-emerald-100 border border-emerald-400 text-emerald-700 px-4 py-3 rounded-lg text-sm font-medium">
-                {{ session('success') }}
-            </div>
-        @endif
-
-        <div class="bg-white shadow-sm sm:rounded-xl p-6 border border-gray-100">
-
-            <!-- Header Row -->
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        📅 School Calendar
-                    </h3>
-                    <p class="text-xs text-gray-500">Manage school holidays, internal events, and examination schedules.</p>
-                </div>
-                <button @click="showAddModal = true"
-                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
-                    + Add Event
+        <x-ui.page-header title="School Calendar"
+            subtitle="Manage school holidays, internal events, and examination schedules.">
+            <x-slot name="actions">
+                <button type="button" onclick="window.print()" class="ui-btn ui-btn-secondary">
+                    <i class="bi bi-printer"></i> Print
                 </button>
-            </div>
+                @can('calendar.manage')
+                    <button type="button" @click="showAddModal = true" class="ui-btn ui-btn-primary">
+                        <i class="bi bi-plus-lg"></i> Add event
+                    </button>
+                @endcan
+            </x-slot>
+        </x-ui.page-header>
 
-            <!-- Chevron / Arrow Filter Tabs matching design -->
-            <div class="grid grid-cols-4 gap-1 mb-6 text-xs font-bold uppercase tracking-wider text-center">
-                <a href="{{ route('admin.calendar.index', ['tab' => 'all']) }}"
-                    class="py-3 px-4 transition {{ $tab === 'all' ? 'bg-slate-900 text-white shadow' : 'bg-slate-800 text-slate-300 hover:bg-slate-700' }} rounded-l-xl">
-                    All ({{ $totalCount }})
-                </a>
-                <a href="{{ route('admin.calendar.index', ['tab' => 'holidays']) }}"
-                    class="py-3 px-4 transition {{ $tab === 'holidays' ? 'bg-rose-600 text-white shadow' : 'bg-rose-500/80 text-white hover:bg-rose-600' }}">
-                    Holidays ({{ $holidayCount }})
-                </a>
-                <a href="{{ route('admin.calendar.index', ['tab' => 'events']) }}"
-                    class="py-3 px-4 transition {{ $tab === 'events' ? 'bg-cyan-600 text-white shadow' : 'bg-cyan-500/80 text-white hover:bg-cyan-600' }}">
-                    Events ({{ $eventCount }})
-                </a>
-                <a href="{{ route('admin.calendar.index', ['tab' => 'exams']) }}"
-                    class="py-3 px-4 transition {{ $tab === 'exams' ? 'bg-purple-600 text-white shadow' : 'bg-purple-600/80 text-white hover:bg-purple-600' }} rounded-r-xl">
-                    Exams ({{ $examCount }})
-                </a>
-            </div>
+        <div class="ui-tabs">
+            <a href="{{ route('admin.calendar.index', ['tab' => 'all']) }}"
+                @class(['ui-tab', 'ui-tab-active' => $tab === 'all'])>
+                <i class="bi bi-calendar3"></i> All
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{{ $totalCount }}</span>
+            </a>
+            <a href="{{ route('admin.calendar.index', ['tab' => 'holidays']) }}"
+                @class(['ui-tab', 'ui-tab-active' => $tab === 'holidays'])>
+                <i class="bi bi-sun"></i> Holidays
+                <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">{{ $holidayCount }}</span>
+            </a>
+            <a href="{{ route('admin.calendar.index', ['tab' => 'events']) }}"
+                @class(['ui-tab', 'ui-tab-active' => $tab === 'events'])>
+                <i class="bi bi-stars"></i> Events
+                <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">{{ $eventCount }}</span>
+            </a>
+            <a href="{{ route('admin.calendar.index', ['tab' => 'exams']) }}"
+                @class(['ui-tab', 'ui-tab-active' => $tab === 'exams'])>
+                <i class="bi bi-journal-check"></i> Exams
+                <span class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">{{ $examCount }}</span>
+            </a>
+        </div>
 
-            <!-- Action Bar -->
-            <div class="flex justify-between items-center mb-4 text-xs">
-                <div class="flex gap-2">
-                    <button onclick="window.print();"
-                        class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded shadow-sm">CSV</button>
-                    <button onclick="window.print();"
-                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded shadow-sm">PDF</button>
-                    <button onclick="window.print();"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow-sm">PRINT</button>
-                </div>
-            </div>
-
-            <!-- Calendar Events Table -->
-            <div class="overflow-x-auto rounded-xl border border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200 text-left text-xs">
-                    <thead class="bg-slate-900 text-white uppercase font-bold tracking-wider">
+        <section class="ui-card overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="ui-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 w-32">Date</th>
-                            <th class="px-4 py-3">Event</th>
-                            <th class="px-4 py-3 w-32">Type</th>
-                            <th class="px-4 py-3">Description</th>
-                            <th class="px-4 py-3 text-right w-24">Actions</th>
+                            <th class="w-32">Date</th>
+                            <th>Event</th>
+                            <th class="w-32">Type</th>
+                            <th class="w-28">Public</th>
+                            <th>Description</th>
+                            <th class="w-24 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @forelse($events as $event)
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="px-4 py-3 font-mono text-gray-600 font-semibold">{{ $event->date }}</td>
-                                <td class="px-4 py-3 font-bold text-gray-900">{{ $event->title }}</td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="px-2.5 py-0.5 rounded font-bold uppercase text-[10px] 
-                                    {{ $event->type === 'holiday' ? 'bg-rose-100 text-rose-800' : ($event->type === 'exam' ? 'bg-purple-100 text-purple-800' : 'bg-cyan-100 text-cyan-800') }}">
-                                        {{ $event->type }}
-                                    </span>
+                    <tbody>
+                        @forelse ($events as $event)
+                            <tr>
+                                <td class="whitespace-nowrap font-mono text-xs font-semibold text-slate-600">
+                                    {{ $event->date }}
                                 </td>
-                                <td class="px-4 py-3 text-gray-600">{{ $event->description ?? '-' }}</td>
-                                <td class="px-4 py-3 text-right space-x-2">
-                                    <button @click="openEdit({{ json_encode($event) }})"
-                                        class="text-indigo-600 hover:text-indigo-900 font-bold" title="Edit">✏️</button>
-                                    <form action="{{ route('admin.calendar.destroy', $event->id) }}" method="POST"
-                                        class="inline">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" onclick="return confirm('Delete this event?')"
-                                            class="text-rose-500 hover:text-rose-700 font-bold" title="Delete">🗑️</button>
-                                    </form>
+                                <td class="font-semibold text-slate-900">{{ $event->title }}</td>
+                                <td>
+                                    @php
+                                        $tone = match ($event->type) {
+                                            'holiday' => 'danger',
+                                            'exam' => 'warning',
+                                            default => 'info',
+                                        };
+                                    @endphp
+                                    <x-ui.badge :tone="$tone">{{ $event->type }}</x-ui.badge>
+                                </td>
+                                <td>
+                                    <x-ui.badge :tone="$event->is_public ? 'success' : 'neutral'">
+                                        {{ $event->is_public ? 'Public' : 'Unpublished' }}
+                                    </x-ui.badge>
+                                </td>
+                                <td class="max-w-md text-slate-600">{{ $event->description ?? '—' }}</td>
+                                <td class="text-right">
+                                    @can('calendar.manage')
+                                        @if (! $event->is_public || auth()->user()?->can('public_calendar.manage'))
+                                            <div class="inline-flex items-center gap-1">
+                                                @can('public_calendar.manage')
+                                                    <a href="{{ route('admin.public-localisations.content.edit', ['school_event', $event]) }}"
+                                                        aria-label="Manage Nepali translation for {{ $event->title }}"
+                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-sky-50 hover:text-sky-600">
+                                                        <i class="bi bi-translate"></i>
+                                                    </a>
+                                                @endcan
+                                                <button type="button" @click="openEdit({{ json_encode($event) }})"
+                                                    aria-label="Edit {{ $event->title }}"
+                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-amber-50 hover:text-amber-600">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <form action="{{ route('admin.calendar.destroy', $event->id) }}" method="POST"
+                                                    class="inline"
+                                                    onsubmit="return confirm('Delete this calendar event?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" aria-label="Delete {{ $event->title }}"
+                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        @endif
+                                    @endcan
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="p-6 text-center text-gray-500 font-medium">No calendar events
-                                    found.</td>
+                                <td colspan="6" class="px-4 py-10">
+                                    <x-ui.empty-state icon="bi-calendar-x" title="No calendar events found"
+                                        message="Holidays, school events, and exam schedules will appear here." />
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Add Event Modal -->
-        <div x-show="showAddModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
-            style="display: none;">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+        @can('calendar.manage')
+            <div x-show="showAddModal" x-cloak
+                class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+                role="dialog" aria-modal="true" aria-labelledby="addEventTitle">
+                <div @click.outside="showAddModal = false"
+                    class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                        <h3 id="addEventTitle" class="flex items-center gap-2 text-base font-bold text-slate-900">
+                            <i class="bi bi-calendar-plus text-emerald-600"></i> Add calendar event
+                        </h3>
+                        <button type="button" @click="showAddModal = false" aria-label="Close"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                            <i class="bi bi-x-lg text-sm"></i>
+                        </button>
+                    </div>
 
-                <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-                    <h3 class="text-sm font-bold flex items-center gap-2">
-                        📅 Add — School Calendar Event
-                    </h3>
-                    <button @click="showAddModal = false"
-                        class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>
+                    <form action="{{ route('admin.calendar.store') }}" method="POST">
+                        @csrf
+                        <div class="space-y-4 p-6">
+                            <div>
+                                <label for="add_title" class="ui-label">Event title <span class="text-rose-600">*</span></label>
+                                <input type="text" name="title" id="add_title" value="{{ old('title') }}" required class="ui-input">
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label for="add_date" class="ui-label">Date <span class="text-rose-600">*</span></label>
+                                    <input type="date" name="date" id="add_date"
+                                        value="{{ old('date', date('Y-m-d')) }}" required class="ui-input">
+                                </div>
+                                <div>
+                                    <label for="add_type" class="ui-label">Type <span class="text-rose-600">*</span></label>
+                                    <select name="type" id="add_type" required class="ui-input">
+                                        <option value="holiday" {{ old('type') === 'holiday' ? 'selected' : '' }}>Holiday</option>
+                                        <option value="event" {{ old('type', 'event') === 'event' ? 'selected' : '' }}>Event</option>
+                                        <option value="exam" {{ old('type') === 'exam' ? 'selected' : '' }}>Exam</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="add_description" class="ui-label">Description</label>
+                                <textarea name="description" id="add_description" rows="3" class="ui-input">{{ old('description') }}</textarea>
+                            </div>
+
+                            <div>
+                                <label class="ui-label">Publication</label>
+                                @can('public_calendar.manage')
+                                    <label class="inline-flex select-none items-center gap-2 py-1 text-sm font-semibold text-slate-700">
+                                        <input type="checkbox" name="is_public" id="add_is_public" value="1"
+                                            @checked((bool) old('is_public'))
+                                            class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500 shrink-0">
+                                        Show on public website
+                                    </label>
+                                @else
+                                    <p class="text-sm leading-6 text-slate-600">This event will remain private to staff. An administrator manages public calendar content.</p>
+                                @endcan
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+                            <button type="button" @click="showAddModal = false" class="ui-btn ui-btn-secondary">Cancel</button>
+                            <button type="submit" class="ui-btn ui-btn-primary">
+                                <i class="bi bi-check2"></i> Save event
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form action="{{ route('admin.calendar.store') }}" method="POST" class="p-6 space-y-4">
-                    @csrf
-
-                    <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Event Title
-                            *</label>
-                        <input type="text" name="title" required
-                            class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-indigo-500">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Date
-                                *</label>
-                            <input type="date" name="date" value="{{ date('Y-m-d') }}" required
-                                class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium">
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Type
-                                *</label>
-                            <select name="type" required
-                                class="w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-white font-medium">
-                                <option value="holiday">Holiday</option>
-                                <option value="event">Event</option>
-                                <option value="exam">Exam</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label
-                            class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Description</label>
-                        <textarea name="description" rows="3"
-                            class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium focus:ring-2 focus:ring-indigo-500"></textarea>
-                    </div>
-
-                    <div class="flex justify-end space-x-2 pt-4 border-t">
-                        <button type="button" @click="showAddModal = false"
-                            class="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg">Cancel</button>
-                        <button type="submit"
-                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow">Save
-                            Event</button>
-                    </div>
-                </form>
             </div>
-        </div>
 
-        <!-- Edit Event Modal -->
-        <div x-show="showEditModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
-            style="display: none;">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+            <div x-show="showEditModal" x-cloak
+                class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+                role="dialog" aria-modal="true" aria-labelledby="editEventTitle">
+                <div @click.outside="showEditModal = false"
+                    class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                        <h3 id="editEventTitle" class="flex items-center gap-2 text-base font-bold text-slate-900">
+                            <i class="bi bi-pencil-square text-emerald-600"></i> Edit calendar event
+                        </h3>
+                        <button type="button" @click="showEditModal = false" aria-label="Close"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                            <i class="bi bi-x-lg text-sm"></i>
+                        </button>
+                    </div>
 
-                <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-                    <h3 class="text-sm font-bold flex items-center gap-2">
-                        ✏️ Edit — School Calendar Event
-                    </h3>
-                    <button @click="showEditModal = false"
-                        class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>
+                    <form :action="'{{ url('admin/calendar') }}/' + editData.id" method="POST">
+                        @csrf
+                        @method('PUT')
+                        <div class="space-y-4 p-6">
+                            <div>
+                                <label for="edit_title" class="ui-label">Event title <span class="text-rose-600">*</span></label>
+                                <input type="text" name="title" id="edit_title" x-model="editData.title" required class="ui-input">
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label for="edit_date" class="ui-label">Date <span class="text-rose-600">*</span></label>
+                                    <input type="date" name="date" id="edit_date" x-model="editData.date" required class="ui-input">
+                                </div>
+                                <div>
+                                    <label for="edit_type" class="ui-label">Type <span class="text-rose-600">*</span></label>
+                                    <select name="type" id="edit_type" x-model="editData.type" required class="ui-input">
+                                        <option value="holiday">Holiday</option>
+                                        <option value="event">Event</option>
+                                        <option value="exam">Exam</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="edit_description" class="ui-label">Description</label>
+                                <textarea name="description" id="edit_description" rows="3" x-model="editData.description"
+                                    class="ui-input"></textarea>
+                            </div>
+
+                            <div>
+                                <label class="ui-label">Publication</label>
+                                @can('public_calendar.manage')
+                                    <label class="inline-flex select-none items-center gap-2 py-1 text-sm font-semibold text-slate-700">
+                                        <input type="checkbox" name="is_public" id="edit_is_public" value="1"
+                                            x-model.boolean="editData.isPublic"
+                                            class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500 shrink-0">
+                                        Show on public website
+                                    </label>
+                                @else
+                                    <p class="text-sm leading-6 text-slate-600">This event remains private to staff. An administrator manages public calendar content.</p>
+                                @endcan
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+                            <button type="button" @click="showEditModal = false" class="ui-btn ui-btn-secondary">Cancel</button>
+                            <button type="submit" class="ui-btn ui-btn-primary">
+                                <i class="bi bi-check2"></i> Update event
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form :action="'{{ url('admin/calendar') }}/' + editData.id" method="POST" class="p-6 space-y-4">
-                    @csrf
-                    @method('PUT')
-
-                    <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Event Title
-                            *</label>
-                        <input type="text" name="title" x-model="editData.title" required
-                            class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Date
-                                *</label>
-                            <input type="date" name="date" x-model="editData.date" required
-                                class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium">
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Type
-                                *</label>
-                            <select name="type" x-model="editData.type" required
-                                class="w-full text-xs border border-gray-300 rounded-lg p-2.5 bg-white font-medium">
-                                <option value="holiday">Holiday</option>
-                                <option value="event">Event</option>
-                                <option value="exam">Exam</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label
-                            class="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">Description</label>
-                        <textarea name="description" rows="3" x-model="editData.description"
-                            class="w-full text-xs border border-gray-300 rounded-lg p-2.5 font-medium"></textarea>
-                    </div>
-
-                    <div class="flex justify-end space-x-2 pt-4 border-t">
-                        <button type="button" @click="showEditModal = false"
-                            class="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg">Cancel</button>
-                        <button type="submit"
-                            class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow">Update
-                            Event</button>
-                    </div>
-                </form>
             </div>
-        </div>
+        @endcan
     </div>
 @endsection

@@ -6,7 +6,7 @@
         <!-- Page Header & Add Button -->
         <div class="flex justify-between items-center">
             <div class="flex items-center space-x-2">
-                <span class="text-xl">🏫</span>
+                <span class="text-xl"><i class="bi bi-building"></i></span>
                 <h3 class="text-xl font-bold text-gray-800">Classes & Sections</h3>
             </div>
             <!-- Trigger Modal Button -->
@@ -30,7 +30,7 @@
                 <!-- Modal Header -->
                 <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
                     <div class="flex items-center space-x-2">
-                        <span>🏫</span>
+                        <span><i class="bi bi-building"></i></span>
                         <h3 class="font-bold text-base">Add Class</h3>
                     </div>
                     <button @click="openModal = false" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
@@ -171,12 +171,12 @@
                                 </td>
                                 <td class="p-4 text-right">
                                     <div class="inline-flex items-center space-x-2">
-                                        <button class="p-1.5 bg-sky-50 text-sky-600 rounded hover:bg-sky-100 text-xs" title="View Details">📅</button>
-                                        <button class="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 text-xs" title="Manage Students">👥</button>
+                                        <button class="p-1.5 bg-sky-50 text-sky-600 rounded hover:bg-sky-100 text-xs" title="View Details"><i class="bi bi-calendar3"></i></button>
+                                        <button class="p-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 text-xs" title="Manage Students"><i class="bi bi-people"></i></button>
                                         <form action="{{ route('admin.classes.destroy', $class->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this class?');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100 text-xs" title="Delete">🗑️</button>
+                                            <button type="submit" class="p-1.5 bg-rose-50 text-rose-600 rounded hover:bg-rose-100 text-xs" title="Delete"><i class="bi bi-trash"></i></button>
                                         </form>
                                     </div>
                                 </td>
