@@ -56,6 +56,10 @@
                             <label for="caption-{{ $slotKey }}" class="ui-label">Public caption (optional)</label>
                             <input id="caption-{{ $slotKey }}" name="caption" type="text" maxlength="500" value="{{ $slot?->caption }}" class="ui-input">
                         </div>
+                        <div>
+                            <label for="caption-ne-{{ $slotKey }}" class="ui-label">Nepali public caption (optional)</label>
+                            <input id="caption-ne-{{ $slotKey }}" name="caption_ne" type="text" maxlength="500" value="{{ $slot?->caption_ne }}" class="ui-input" lang="ne">
+                        </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label for="focal-x-{{ $slotKey }}" class="ui-label">Horizontal focus %</label>

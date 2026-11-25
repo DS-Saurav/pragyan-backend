@@ -49,7 +49,7 @@ final class PublicNepaliController extends Controller
 
         return $revision === null
             ? $this->unavailable(route('home'))
-            : $this->content((array) $revision->payload, __('public.home'), route('home'));
+            : $this->content((array) $revision->payload, __('public.home'), route('home'), null, false, $this->publicPhotoSlots->resolve('home_hero', 'ne'));
     }
 
     public function about(): View
@@ -202,7 +202,14 @@ final class PublicNepaliController extends Controller
 
         return $revision === null
             ? $this->unavailable($englishUrl)
-            : $this->content((array) $revision->payload, $this->title((array) $revision->payload, $type === PublicPage::TYPE_ABOUT ? __('public.about') : __('public.academics')), $englishUrl, $revision, true);
+            : $this->content(
+                (array) $revision->payload,
+                $this->title((array) $revision->payload, $type === PublicPage::TYPE_ABOUT ? __('public.about') : __('public.academics')),
+                $englishUrl,
+                $revision,
+                true,
+                $type === PublicPage::TYPE_ACADEMICS ? $this->publicPhotoSlots->resolve('home_learning', 'ne') : null,
+            );
     }
 
     private function newsListing(bool $archive): View
@@ -254,7 +261,7 @@ final class PublicNepaliController extends Controller
     }
 
     /** @param array<string, mixed> $payload */
-    private function content(array $payload, string $title, string $englishUrl, ?PublicContentTranslationRevision $revision = null, bool $photoHero = false): View
+    private function content(array $payload, string $title, string $englishUrl, ?PublicContentTranslationRevision $revision = null, bool $photoHero = false, ?array $slotHeroPhoto = null): View
     {
         return view('frontend.localized.content', [
             'title' => $title,
@@ -263,6 +270,7 @@ final class PublicNepaliController extends Controller
             'bodyHtml' => $this->bodyHtml($payload),
             'media' => $revision instanceof PublicContentTranslationRevision ? $this->media($revision) : collect(),
             'photoHero' => $photoHero,
+            'slotHeroPhoto' => $slotHeroPhoto,
             'localizedAvailable' => true,
             'metaDescription' => $this->summary($payload) ?: $title,
         ]);

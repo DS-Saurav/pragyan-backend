@@ -16,8 +16,8 @@
         $hasDetails = $address !== '' || $location !== '' || $hours !== '' || $guidance !== '' || $phone !== '' || $email !== '' || $directions !== '' || $websitePlaceholder !== '';
     @endphp
 
-    <section class="page-hero {{ $visitPhoto ? 'page-hero--with-photo' : '' }}" aria-labelledby="contactTitle">
-        @if ($visitPhoto)
+    <section class="page-hero {{ ($visitPhoto ?? null) ? 'page-hero--with-photo' : '' }}" aria-labelledby="contactTitle">
+        @if ($visitPhoto ?? null)
             <figure class="page-hero__photo" data-contact-visit-photo>
                 <img src="{{ $visitPhoto['url'] }}" alt="{{ $visitPhoto['alt'] }}" width="{{ $visitPhoto['width'] }}" height="{{ $visitPhoto['height'] }}"
                     style="object-position: {{ $visitPhoto['focal_x'] }}% {{ $visitPhoto['focal_y'] }}%;" loading="eager" decoding="async">

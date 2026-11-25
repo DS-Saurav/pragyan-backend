@@ -3,7 +3,7 @@
 @section('content')
     <x-public.hero
         :identity="$identity"
-        :photo="$homeHeroPhoto"
+        :photo="$homeHeroPhoto ?? null"
         :headline="$heroHeadline"
         :intro="$heroIntro"
         :learningRange="$academicsPreview['learning_range'] ?? null"
@@ -44,7 +44,7 @@
     @if ($academicsPreview !== null)
         <section class="section home-learning-journey" aria-labelledby="academicsPreviewTitle" data-home-academics-preview>
             <div class="container">
-                @if ($homeLearningPhoto)
+                @if ($homeLearningPhoto ?? null)
                     <figure class="home-learning-journey__photo" data-home-learning-photo>
                         <img src="{{ $homeLearningPhoto['url'] }}" alt="{{ $homeLearningPhoto['alt'] }}"
                             width="{{ $homeLearningPhoto['width'] }}" height="{{ $homeLearningPhoto['height'] }}"

@@ -3,14 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\MediaAsset;
+use App\Models\PublicPage;
+use App\Models\PublicPhotoSlot;
 use App\Models\User;
 use App\Models\UserRole;
-use App\Services\Media\MediaUsage;
 use App\Services\Media\MediaLibrary;
+use App\Services\Media\MediaUsage;
+use App\Services\PublicPages\PublicPagePublisher;
 use App\Services\PublicPhotos\PublicPhotoSlots;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -75,6 +78,7 @@ class PublicPhotoSlotsTest extends TestCase
             'alt_text' => 'Aerial view of Pragyan Pathashala campus',
             'alt_text_ne' => 'प्रज्ञा पाठशाला परिसरको आकाशबाट दृश्य',
             'caption' => 'Our campus in Birendranagar',
+            'caption_ne' => 'वीरेन्द्रनगरमा हाम्रो विद्यालय परिसर',
             'focal_x' => 45,
             'focal_y' => 55,
             'source_rights_note' => 'School owner confirmed permission for public use, including visible people.',
@@ -82,6 +86,7 @@ class PublicPhotoSlotsTest extends TestCase
 
         $this->assertSame('Aerial view of Pragyan Pathashala campus', $photos->resolve('home_hero')['alt']);
         $this->assertSame('प्रज्ञा पाठशाला परिसरको आकाशबाट दृश्य', $photos->resolve('home_hero', 'ne')['alt']);
+        $this->assertSame('वीरेन्द्रनगरमा हाम्रो विद्यालय परिसर', $photos->resolve('home_hero', 'ne')['caption']);
         $this->assertSame(['public photo slot: home_hero'], app(MediaUsage::class)->publishedUses($asset));
         $this->assertDatabaseHas('public_photo_slot_events', [
             'action' => 'selected', 'actor_id' => $admin->id, 'media_asset_id' => $asset->id,
@@ -113,6 +118,63 @@ class PublicPhotoSlotsTest extends TestCase
         app(MediaLibrary::class)->withdrawConsent($admin, $asset);
         $this->assertNull($photos->resolve('contact_visit'));
         $this->assertNull($photos->resolve('contact_visit', 'ne'));
+    }
+
+    public function test_public_pages_show_only_selected_derivatives_and_hide_them_after_consent_withdrawal(): void
+    {
+        $admin = $this->actor();
+        $asset = $this->publishedAsset($admin);
+        $photos = app(PublicPhotoSlots::class);
+
+        foreach (['home_hero', 'admissions_hero', 'contact_visit'] as $slot) {
+            $photos->save($admin, $slot, [
+                'media_asset_id' => $asset->id,
+                'alt_text' => 'Aerial view of Pragyan Pathashala campus',
+                'source_rights_note' => 'School owner confirmed permission for public use.',
+            ]);
+        }
+
+        $url = route('media.published', ['id' => $asset->id]);
+        $this->get('/')->assertOk()->assertSee('data-home-hero-photo', false)->assertSee($url, false);
+        $this->get('/admissions')->assertOk()->assertSee('editorial-page-hero--with-photo')->assertSee($url, false);
+        $this->get('/contact')->assertOk()->assertSee('editorial-page-hero--with-photo')->assertSee($url, false);
+
+        app(MediaLibrary::class)->withdrawConsent($admin, $asset);
+
+        $this->get('/')->assertOk()->assertDontSee('data-home-hero-photo');
+        $this->get('/admissions')->assertOk()->assertDontSee($url, false);
+        $this->get('/contact')->assertOk()->assertDontSee($url, false);
+    }
+
+    public function test_published_academics_uses_safe_overview_photo_without_changing_editorial_text(): void
+    {
+        $admin = $this->actor();
+        $asset = $this->publishedAsset($admin);
+        $publisher = app(PublicPagePublisher::class);
+        $page = $publisher->createDraft($admin, PublicPage::TYPE_ACADEMICS, [
+            'title' => 'Approved school learning',
+            'introduction_markdown' => 'This school-approved text remains the same.',
+            'stages' => [['title' => 'Early learning', 'key_points' => []]],
+        ]);
+        $revision = $page->revisions->sole();
+        $publisher->submit($admin, $page, $revision);
+        $publisher->approve($admin, $page, $revision);
+        $publisher->publish($admin, $page, $revision);
+
+        app(PublicPhotoSlots::class)->save($admin, 'home_learning', [
+            'media_asset_id' => $asset->id,
+            'alt_text' => 'Aerial view of the school campus',
+            'source_rights_note' => 'Owner confirmed school photo may be used publicly.',
+        ]);
+
+        $this->get('/academics')->assertOk()
+            ->assertSee('data-academics-hero-photo', false)
+            ->assertSee('This school-approved text remains the same.');
+        $this->get('/')->assertOk()->assertSee('data-home-learning-photo', false);
+
+        app(MediaLibrary::class)->withdrawConsent($admin, $asset);
+        $this->get('/academics')->assertOk()->assertDontSee('data-academics-hero-photo');
+        $this->get('/')->assertOk()->assertDontSee('data-home-learning-photo');
     }
 
     public function test_unapproved_photo_and_missing_rights_note_are_rejected_and_non_admin_cannot_assign(): void
@@ -165,7 +227,7 @@ class PublicPhotoSlotsTest extends TestCase
         $this->get('/')->assertOk();
 
         $migration->up();
-        $this->assertSame(4, \App\Models\PublicPhotoSlot::query()->count());
+        $this->assertSame(4, PublicPhotoSlot::query()->count());
         $this->assertNull(app(PublicPhotoSlots::class)->resolve('home_hero'));
     }
 }

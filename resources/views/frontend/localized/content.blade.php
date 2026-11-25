@@ -24,7 +24,9 @@
             $payload['faqs'] ?? null,
             $payload['stages'] ?? null,
         ])->filter(fn ($value) => is_array($value) && $value !== [])->values();
-        $headerPhoto = ! empty($photoHero) ? $media->first() : null;
+        $headerPhotoIsEditorial = ! empty($photoHero) && $media->isNotEmpty();
+        $headerPhoto = $headerPhotoIsEditorial ? $media->first() : null;
+        $headerPhoto ??= $slotHeroPhoto ?? null;
     @endphp
 
     <article class="news-story" aria-labelledby="neContentTitle">
@@ -48,7 +50,7 @@
 
         <div class="container news-story-layout">
             <div class="news-story-content">
-                @foreach ($headerPhoto ? $media->skip(1) : $media as $image)
+                @foreach ($headerPhotoIsEditorial ? $media->skip(1) : $media as $image)
                     <figure class="news-story-cover">
                         <img src="{{ $image['url'] }}" alt="{{ $image['alt'] }}" decoding="async">
                         @if ($image['caption'])<figcaption>{{ $image['caption'] }}</figcaption>@endif

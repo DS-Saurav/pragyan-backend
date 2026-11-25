@@ -4,15 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\PublicPage;
 use App\Models\PublicPageRevision;
+use App\Services\Media\MediaFiles;
+use App\Services\PublicPhotos\PublicPhotoSlots;
 use App\Services\PublicPages\PublicPageMarkdown;
 use App\Services\PublicPages\PublicPageVisibility;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class PublicPageController extends Controller
 {
     public function __construct(
         private PublicPageVisibility $visibility,
         private PublicPageMarkdown $markdown,
+        private PublicPhotoSlots $publicPhotoSlots,
     ) {}
 
     public function about(): View
@@ -30,6 +35,17 @@ class PublicPageController extends Controller
         $page = $this->visibility->page($type);
         $revision = $page?->publishedRevision;
         [$featureUrl, $featureAlt, $featureWidth, $featureHeight] = $this->safeFeature($revision);
+        if ($type === PublicPage::TYPE_ACADEMICS && $revision !== null && $featureUrl === null) {
+            $overviewPhoto = $this->publicPhotoSlots->resolve('home_learning');
+            if ($overviewPhoto !== null) {
+                [$featureUrl, $featureAlt, $featureWidth, $featureHeight] = [
+                    $overviewPhoto['url'],
+                    $overviewPhoto['alt'],
+                    $overviewPhoto['width'],
+                    $overviewPhoto['height'],
+                ];
+            }
+        }
 
         return view($view, [
             'page' => $page,
@@ -52,6 +68,13 @@ class PublicPageController extends Controller
             && $asset->archived_at === null
             && in_array($asset->consent_state, ['not_required', 'confirmed'], true)
             && $asset->consent_withdrawn_at === null;
+        if ($assetIsSafe) {
+            try {
+                $assetIsSafe = Storage::disk('media_derivatives')->exists(app(MediaFiles::class)->publicPath($asset));
+            } catch (ValidationException) {
+                $assetIsSafe = false;
+            }
+        }
         $altText = $assetIsSafe
             ? trim((string) ($feature?->alt_text ?: $asset?->default_alt_text))
             : '';

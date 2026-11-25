@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('alt_text', 255)->nullable();
             $table->string('alt_text_ne', 255)->nullable();
             $table->string('caption', 500)->nullable();
+            $table->string('caption_ne', 500)->nullable();
             $table->decimal('focal_x', 5, 2)->default(50);
             $table->decimal('focal_y', 5, 2)->default(50);
             // Staff-only provenance. Never include this field in public projections.

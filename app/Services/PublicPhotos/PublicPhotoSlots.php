@@ -19,7 +19,7 @@ class PublicPhotoSlots
     /** @var array<string, string> */
     public const LABELS = [
         'home_hero' => 'Homepage lead photograph',
-        'home_learning' => 'Homepage learning photograph',
+        'home_learning' => 'Academics and homepage overview photograph',
         'admissions_hero' => 'Admissions photograph',
         'contact_visit' => 'Contact and visit photograph',
     ];
@@ -52,7 +52,7 @@ class PublicPhotoSlots
         return [
             'url' => route('media.published', ['id' => $asset->getKey()]),
             'alt' => $alt,
-            'caption' => trim((string) $record->caption),
+            'caption' => trim((string) ($locale === 'ne' ? $record->caption_ne : $record->caption)),
             'focal_x' => (string) $record->focal_x,
             'focal_y' => (string) $record->focal_y,
             'width' => (int) $asset->width,
@@ -78,6 +78,7 @@ class PublicPhotoSlots
             'alt_text' => ['required_with:media_asset_id', 'nullable', 'string', 'max:255'],
             'alt_text_ne' => ['nullable', 'string', 'max:255'],
             'caption' => ['nullable', 'string', 'max:500'],
+            'caption_ne' => ['nullable', 'string', 'max:500'],
             'focal_x' => ['nullable', 'numeric', 'between:0,100'],
             'focal_y' => ['nullable', 'numeric', 'between:0,100'],
             'source_rights_note' => ['required_with:media_asset_id', 'nullable', 'string', 'max:2000'],
@@ -105,6 +106,7 @@ class PublicPhotoSlots
                 'alt_text' => $asset === null ? null : $alt,
                 'alt_text_ne' => $asset === null ? null : trim((string) ($validated['alt_text_ne'] ?? '')),
                 'caption' => $asset === null ? null : trim((string) ($validated['caption'] ?? '')),
+                'caption_ne' => $asset === null ? null : trim((string) ($validated['caption_ne'] ?? '')),
                 'focal_x' => $asset === null ? 50 : ($validated['focal_x'] ?? 50),
                 'focal_y' => $asset === null ? 50 : ($validated['focal_y'] ?? 50),
                 'source_rights_note' => $asset === null ? null : $rights,

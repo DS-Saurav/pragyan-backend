@@ -7,8 +7,8 @@
         $showSeparateLocation = $identity['location'] !== '' && $identity['location'] !== $identity['address'];
     @endphp
 
-    <section class="editorial-page-hero editorial-page-hero--contact {{ $visitPhoto ? 'editorial-page-hero--with-photo' : '' }}" aria-labelledby="contactTitle">
-        @if ($visitPhoto)
+    <section class="editorial-page-hero editorial-page-hero--contact {{ ($visitPhoto ?? null) ? 'editorial-page-hero--with-photo' : '' }}" aria-labelledby="contactTitle">
+        @if ($visitPhoto ?? null)
             <figure class="editorial-page-hero__photo" data-contact-visit-photo>
                 <img src="{{ $visitPhoto['url'] }}" alt="{{ $visitPhoto['alt'] }}" width="{{ $visitPhoto['width'] }}" height="{{ $visitPhoto['height'] }}"
                     style="object-position: {{ $visitPhoto['focal_x'] }}% {{ $visitPhoto['focal_y'] }}%;" loading="eager" decoding="async">

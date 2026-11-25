@@ -3478,7 +3478,6 @@ html[lang="ne"] .pp-site .nav-group-label {
 .pp-site .editorial-page-hero__photo,
 .pp-site .page-hero__photo {
   position: absolute;
-  z-index: 0;
   inset: 0;
   margin: 0;
   overflow: hidden;
@@ -3486,6 +3485,8 @@ html[lang="ne"] .pp-site .nav-group-label {
 .pp-site .home-text-hero__photo img,
 .pp-site .editorial-page-hero__photo img,
 .pp-site .page-hero__photo img {
+  position: relative;
+  z-index: 0;
   display: block;
   width: 100%;
   height: 100%;

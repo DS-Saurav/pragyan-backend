@@ -9,8 +9,8 @@
         $faqs = is_array($payload['faqs'] ?? null) ? $payload['faqs'] : [];
     @endphp
 
-    <section class="page-hero {{ $heroPhoto ? 'page-hero--with-photo' : '' }}" aria-labelledby="admissionsTitle">
-        @if ($heroPhoto)
+    <section class="page-hero {{ ($heroPhoto ?? null) ? 'page-hero--with-photo' : '' }}" aria-labelledby="admissionsTitle">
+        @if ($heroPhoto ?? null)
             <figure class="page-hero__photo" data-admissions-hero-photo>
                 <img src="{{ $heroPhoto['url'] }}" alt="{{ $heroPhoto['alt'] }}" width="{{ $heroPhoto['width'] }}" height="{{ $heroPhoto['height'] }}"
                     style="object-position: {{ $heroPhoto['focal_x'] }}% {{ $heroPhoto['focal_y'] }}%;" loading="eager" decoding="async">
