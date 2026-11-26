@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\Notice;
 use App\Services\Notices\NoticeMarkdown;
 use App\Services\Notices\NoticeVisibility;
@@ -16,9 +18,9 @@ class PublicNoticeController extends Controller
         private NoticeMarkdown $noticeMarkdown,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
-        return view('frontend.notices', [
+        return response()->json([
             'notices' => $this->noticeVisibility->displayableQuery()
                 ->with('publishedRevision')
                 ->orderByDesc('date')
@@ -30,9 +32,9 @@ class PublicNoticeController extends Controller
         ]);
     }
 
-    public function archive(): View
+    public function archive(): JsonResponse
     {
-        return view('frontend.notices', [
+        return response()->json([
             'notices' => $this->noticeVisibility->displayableQuery()
                 ->with('publishedRevision')
                 ->orderByDesc('date')
@@ -44,12 +46,12 @@ class PublicNoticeController extends Controller
         ]);
     }
 
-    public function show(string $slug): View|RedirectResponse
+    public function show(string $slug): JsonResponse
     {
         $result = $this->noticeVisibility->findDisplayableSlug($slug);
 
         if ($result['redirect'] instanceof Notice) {
-            return redirect()->route('public.notices.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
 
         abort_unless($result['notice'] instanceof Notice, 404);
@@ -57,7 +59,7 @@ class PublicNoticeController extends Controller
         $revision = $notice->publishedRevision;
         $isLegacy = $revision === null;
 
-        return view('frontend.notice-show', [
+        return response()->json([
             'notice' => $notice,
             'revision' => $revision,
             'isLegacy' => $isLegacy,

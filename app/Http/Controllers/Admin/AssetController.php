@@ -56,7 +56,7 @@ class AssetController extends Controller
 
         $students = Student::where('status', 'active')->orderBy('first_name')->get();
 
-        return view('admin.assets.index', compact('assets', 'counts', 'tab', 'students'));
+        return response()->json(compact('assets', 'counts', 'tab', 'students'));
     }
 
     public function store(Request $request)
@@ -77,7 +77,7 @@ class AssetController extends Controller
 
         Asset::create($validated);
 
-        return back()->with('success', 'Item added to inventory successfully!');
+        return response()->json(["message" => 'Item added to inventory successfully!']);
     }
 
     // Issue one unit of an item to a student (creates a loan record)
@@ -114,10 +114,10 @@ class AssetController extends Controller
         });
 
         if (! $issued) {
-            return back()->with('error', 'No available copies left to issue!');
+            return response()->json(["message" => 'No available copies left to issue!']);
         }
 
-        return back()->with('success', 'Item issued successfully!');
+        return response()->json(["message" => 'Item issued successfully!']);
     }
 
     // Return one unit. Works per loan (loan_id) or as a fallback for legacy records.
@@ -183,7 +183,7 @@ class AssetController extends Controller
     {
         $asset->delete();
 
-        return back()->with('success', 'Item removed successfully!');
+        return response()->json(["message" => 'Item removed successfully!']);
     }
 
     public function exportCsv(Request $request): StreamedResponse

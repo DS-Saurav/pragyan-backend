@@ -124,7 +124,7 @@ class HallTicketController extends Controller
 
         $minAttendance = self::MIN_ATTENDANCE;
 
-        return view('admin.hall-tickets.index', compact(
+        return response()->json(compact(
             'exams', 'classes', 'classLabels', 'exam', 'examMeta', 'selectedClassId',
             'tickets', 'classesWithoutSetup', 'school', 'instructions', 'minAttendance'
         ));

@@ -37,7 +37,7 @@ class ExamController extends Controller
 
         $y = now()->month >= 4 ? now()->year : now()->year - 1; // school year starts around April
 
-        return view('admin.exams.index', [
+        return response()->json([
             'exams' => $exams,
             'counts' => $counts,
             'tab' => $tab,
@@ -53,7 +53,7 @@ class ExamController extends Controller
         $data['status'] = $data['status'] ?? 'scheduled';
         Exam::create($data);
 
-        return back()->with('success', 'Exam created. Next: click ⚙️ Setup to add subjects and marks.');
+        return response()->json(["message" => 'Exam created. Next: click ⚙️ Setup to add subjects and marks.']);
     }
 
     public function update(Request $request, Exam $exam)
@@ -66,42 +66,42 @@ class ExamController extends Controller
 
         $exam->update($data);
 
-        return back()->with('success', 'Exam updated.');
+        return response()->json(["message" => 'Exam updated.']);
     }
 
     public function destroy(Exam $exam)
     {
         if ($exam->status === 'published') {
-            return back()->withErrors(['exam' => 'Unpublish this exam before deleting it.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $exam->delete(); // also removes its setup and marks
 
-        return back()->with('success', 'Exam deleted.');
+        return response()->json(["message" => 'Exam deleted.']);
     }
 
     public function publish(Exam $exam)
     {
         $total = $exam->examSubjects()->count();
         if ($total === 0) {
-            return back()->withErrors(['publish' => 'Set up subjects for this exam before publishing.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $open = $exam->examSubjects()->whereIn('marks_status', ['pending', 'draft'])->count();
         if ($open > 0) {
-            return back()->withErrors(['publish' => "{$open} subject(s) still have pending or draft marks. Teachers must submit them first."]);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $exam->update(['status' => 'published', 'published_at' => now()]);
 
-        return back()->with('success', 'Results published.');
+        return response()->json(["message" => 'Results published.']);
     }
 
     public function unpublish(Exam $exam)
     {
         $exam->update(['status' => 'completed', 'published_at' => null]);
 
-        return back()->with('success', 'Results unpublished.');
+        return response()->json(["message" => 'Results unpublished.']);
     }
 
     private function rules(): array

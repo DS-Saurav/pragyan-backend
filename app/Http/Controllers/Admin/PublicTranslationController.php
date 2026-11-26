@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\MediaAttachment;
 use App\Models\PublicContentTranslation;
@@ -27,7 +29,7 @@ final class PublicTranslationController extends Controller
         private PublicTranslationPublisher $publisher,
     ) {}
 
-    public function editContent(string $contentType, int $contentId): View
+    public function editContent(string $contentType, int $contentId): JsonResponse
     {
         $this->authorizeAnyContent($contentType);
         $source = $this->sources->sourceFor($contentType, $contentId);
@@ -41,7 +43,7 @@ final class PublicTranslationController extends Controller
         return $this->contentEditor($contentType, $source, $translation);
     }
 
-    public function saveContent(Request $request, string $contentType, int $contentId): RedirectResponse
+    public function saveContent(Request $request, string $contentType, int $contentId): JsonResponse
     {
         $this->authorizeContent($contentType, 'author');
         $source = $this->sources->sourceFor($contentType, $contentId);
@@ -53,13 +55,12 @@ final class PublicTranslationController extends Controller
             (array) $request->input('media', []),
         );
 
-        return redirect()->route('admin.public-localisations.content.edit', [$contentType, $contentId])
-            ->with('status', $translation->published_revision_id === null
+        return response()->json(["message" => $translation->published_revision_id === null
                 ? 'Nepali draft saved privately.'
-                : 'A private Nepali revision was saved; the published translation has not changed.');
+                : 'A private Nepali revision was saved; the published translation has not changed.']);
     }
 
-    public function previewContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): View
+    public function previewContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): JsonResponse
     {
         $this->ensureContentRevision($translation, $revision);
         $this->authorizeAnyContent($translation->content_type);
@@ -72,52 +73,52 @@ final class PublicTranslationController extends Controller
         );
     }
 
-    public function submitContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): RedirectResponse
+    public function submitContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): JsonResponse
     {
         $this->ensureContentRevision($translation, $revision);
         $this->publisher->submitContent($this->actor(), $translation, $revision);
 
-        return back()->with('status', 'Nepali revision submitted for review.');
+        return response()->json(["message" => 'Nepali revision submitted for review.']);
     }
 
-    public function approveContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): RedirectResponse
+    public function approveContent(PublicContentTranslation $translation, PublicContentTranslationRevision $revision): JsonResponse
     {
         $this->ensureContentRevision($translation, $revision);
         $this->publisher->approveContent($this->actor(), $translation, $revision);
 
-        return back()->with('status', 'Nepali revision approved.');
+        return response()->json(["message" => 'Nepali revision approved.']);
     }
 
-    public function publishContent(Request $request, PublicContentTranslation $translation, PublicContentTranslationRevision $revision): RedirectResponse
+    public function publishContent(Request $request, PublicContentTranslation $translation, PublicContentTranslationRevision $revision): JsonResponse
     {
         $this->ensureContentRevision($translation, $revision);
         $this->publisher->publishContent($this->actor(), $translation, $revision, $this->scheduledFor($request));
 
-        return back()->with('status', 'Nepali translation publication updated.');
+        return response()->json(["message" => 'Nepali translation publication updated.']);
     }
 
-    public function withdrawContent(PublicContentTranslation $translation): RedirectResponse
+    public function withdrawContent(PublicContentTranslation $translation): JsonResponse
     {
         $this->publisher->withdrawContent($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali translation withdrawn. English remains unchanged.');
+        return response()->json(["message" => 'Nepali translation withdrawn. English remains unchanged.']);
     }
 
-    public function archiveContent(PublicContentTranslation $translation): RedirectResponse
+    public function archiveContent(PublicContentTranslation $translation): JsonResponse
     {
         $this->publisher->archiveContent($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali translation archived; its history is retained.');
+        return response()->json(["message" => 'Nepali translation archived; its history is retained.']);
     }
 
-    public function restoreContent(PublicContentTranslation $translation): RedirectResponse
+    public function restoreContent(PublicContentTranslation $translation): JsonResponse
     {
         $this->publisher->restoreContent($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali translation restored as a private draft.');
+        return response()->json(["message" => 'Nepali translation restored as a private draft.']);
     }
 
-    public function editSite(string $scope): View
+    public function editSite(string $scope): JsonResponse
     {
         $this->authorizeAnySite($scope);
         $translation = PublicSiteTranslation::query()
@@ -129,16 +130,15 @@ final class PublicTranslationController extends Controller
         return $this->siteEditor($scope, $translation);
     }
 
-    public function saveSite(Request $request, string $scope): RedirectResponse
+    public function saveSite(Request $request, string $scope): JsonResponse
     {
         $this->authorizeSite($scope);
         $this->publisher->saveSiteDraft($this->actor(), $scope, (array) $request->input('payload', []));
 
-        return redirect()->route('admin.public-localisations.site.edit', $scope)
-            ->with('status', 'Nepali site translation saved privately.');
+        return response()->json(["message" => 'Nepali site translation saved privately.']);
     }
 
-    public function previewSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): View
+    public function previewSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): JsonResponse
     {
         $this->ensureSiteRevision($translation, $revision);
         $this->authorizeSite($translation->scope);
@@ -150,52 +150,52 @@ final class PublicTranslationController extends Controller
         );
     }
 
-    public function submitSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): RedirectResponse
+    public function submitSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): JsonResponse
     {
         $this->ensureSiteRevision($translation, $revision);
         $this->publisher->submitSite($this->actor(), $translation, $revision);
 
-        return back()->with('status', 'Nepali revision submitted for review.');
+        return response()->json(["message" => 'Nepali revision submitted for review.']);
     }
 
-    public function approveSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): RedirectResponse
+    public function approveSite(PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): JsonResponse
     {
         $this->ensureSiteRevision($translation, $revision);
         $this->publisher->approveSite($this->actor(), $translation, $revision);
 
-        return back()->with('status', 'Nepali revision approved.');
+        return response()->json(["message" => 'Nepali revision approved.']);
     }
 
-    public function publishSite(Request $request, PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): RedirectResponse
+    public function publishSite(Request $request, PublicSiteTranslation $translation, PublicSiteTranslationRevision $revision): JsonResponse
     {
         $this->ensureSiteRevision($translation, $revision);
         $this->publisher->publishSite($this->actor(), $translation, $revision, $this->scheduledFor($request));
 
-        return back()->with('status', 'Nepali site translation publication updated.');
+        return response()->json(["message" => 'Nepali site translation publication updated.']);
     }
 
-    public function withdrawSite(PublicSiteTranslation $translation): RedirectResponse
+    public function withdrawSite(PublicSiteTranslation $translation): JsonResponse
     {
         $this->publisher->withdrawSite($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali site translation withdrawn. English remains unchanged.');
+        return response()->json(["message" => 'Nepali site translation withdrawn. English remains unchanged.']);
     }
 
-    public function archiveSite(PublicSiteTranslation $translation): RedirectResponse
+    public function archiveSite(PublicSiteTranslation $translation): JsonResponse
     {
         $this->publisher->archiveSite($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali site translation archived.');
+        return response()->json(["message" => 'Nepali site translation archived.']);
     }
 
-    public function restoreSite(PublicSiteTranslation $translation): RedirectResponse
+    public function restoreSite(PublicSiteTranslation $translation): JsonResponse
     {
         $this->publisher->restoreSite($this->actor(), $translation);
 
-        return back()->with('status', 'Nepali site translation restored as a private draft.');
+        return response()->json(["message" => 'Nepali site translation restored as a private draft.']);
     }
 
-    private function contentEditor(string $type, Model $source, ?PublicContentTranslation $translation): View
+    private function contentEditor(string $type, Model $source, ?PublicContentTranslation $translation): JsonResponse
     {
         $revision = $this->editingRevision($translation) ?? new PublicContentTranslationRevision([
             'workflow_state' => 'draft', 'payload' => [],
@@ -221,7 +221,7 @@ final class PublicTranslationController extends Controller
             'workflow_urls' => $translation === null ? [] : $this->contentWorkflowUrls($translation, $revision),
         ];
 
-        return view('admin.public-localisations.editor', [
+        return response()->json([
             'translation' => $translation ?? new PublicContentTranslation(['publication_state' => 'not_started']),
             'source' => $source,
             'schema' => $schema,
@@ -231,7 +231,7 @@ final class PublicTranslationController extends Controller
         ]);
     }
 
-    private function siteEditor(string $scope, ?PublicSiteTranslation $translation): View
+    private function siteEditor(string $scope, ?PublicSiteTranslation $translation): JsonResponse
     {
         $revision = $this->editingRevision($translation) ?? new PublicSiteTranslationRevision(['workflow_state' => 'draft', 'payload' => []]);
         $sourceSchema = $this->publisher->siteSchema($scope);
@@ -251,7 +251,7 @@ final class PublicTranslationController extends Controller
             'workflow_urls' => $translation === null ? [] : $this->siteWorkflowUrls($translation, $revision),
         ];
 
-        return view('admin.public-localisations.editor', [
+        return response()->json([
             'translation' => $translation ?? new PublicSiteTranslation(['publication_state' => 'not_started']),
             'source' => ['title' => ucfirst($scope).' English source', 'publication_state' => 'published'],
             'schema' => $schema,
@@ -265,8 +265,8 @@ final class PublicTranslationController extends Controller
         PublicContentTranslationRevision|PublicSiteTranslationRevision $revision,
         string $sourceLabel,
         string $backUrl,
-    ): View {
-        return view('admin.public-localisations.preview', [
+    ): JsonResponse {
+        return response()->json([
             'revision' => $revision,
             'payload' => (array) $revision->payload,
             'sourceLabel' => $sourceLabel,

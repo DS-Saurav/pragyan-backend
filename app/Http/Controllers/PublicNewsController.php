@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\NewsStory;
 use App\Services\News\NewsMarkdown;
 use App\Services\News\NewsVisibility;
@@ -15,9 +17,9 @@ class PublicNewsController extends Controller
         private NewsMarkdown $newsMarkdown,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
-        return view('frontend.news', [
+        return response()->json([
             'stories' => $this->newsVisibility->displayableQuery()
                 ->with(['publishedRevision.cover.asset'])
                 ->orderByDesc('published_at')
@@ -28,9 +30,9 @@ class PublicNewsController extends Controller
         ]);
     }
 
-    public function archive(): View
+    public function archive(): JsonResponse
     {
-        return view('frontend.news', [
+        return response()->json([
             'stories' => $this->newsVisibility->displayableQuery()
                 ->with(['publishedRevision.cover.asset'])
                 ->orderByDesc('published_at')
@@ -41,12 +43,12 @@ class PublicNewsController extends Controller
         ]);
     }
 
-    public function show(string $slug): View|RedirectResponse
+    public function show(string $slug): JsonResponse
     {
         $result = $this->newsVisibility->findDisplayableSlug($slug);
 
         if ($result['redirect'] instanceof NewsStory) {
-            return redirect()->route('public.news.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
 
         abort_unless($result['story'] instanceof NewsStory, 404);
@@ -59,7 +61,7 @@ class PublicNewsController extends Controller
             ? route('media.published', $cover->media_asset_id)
             : null;
 
-        return view('frontend.news-show', [
+        return response()->json([
             'story' => $story,
             'revision' => $revision,
             'cover' => $cover,

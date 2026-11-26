@@ -14,6 +14,6 @@ class AboutController extends Controller
 
         $settings = Setting::pluck('value', 'key')->all();
 
-        return view('admin.about', compact('settings'));
+        return response()->json(compact('settings'));
     }
 }

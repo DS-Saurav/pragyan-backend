@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\AdmissionCycle;
 use App\Services\PublicAdmissions\AdmissionCycleResolver;
@@ -18,11 +20,11 @@ class PublicAdmissionCycleController extends Controller
 {
     public function __construct(private AdmissionCycleResolver $admissionCycleResolver) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         $this->authorizeContentManagement();
 
-        return view('admin.public-admissions.index', [
+        return response()->json([
             'cycles' => AdmissionCycle::query()
                 ->with(['creator', 'editor', 'publisher'])
                 ->orderByDesc('updated_at')
@@ -30,7 +32,7 @@ class PublicAdmissionCycleController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(): JsonResponse
     {
         $this->authorizeContentManagement();
 
@@ -40,7 +42,7 @@ class PublicAdmissionCycleController extends Controller
         ]));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse
     {
         $this->authorizeContentManagement();
         $validated = $this->validated($request);
@@ -57,11 +59,10 @@ class PublicAdmissionCycleController extends Controller
             return $cycle;
         });
 
-        return redirect()->route('admin.public-admissions.edit', $cycle)
-            ->with('success', 'Public admissions cycle saved as a draft. Publish it separately when it is approved.');
+        return response()->json(["message" => 'Public admissions cycle saved as a draft. Publish it separately when it is approved.']);
     }
 
-    public function edit(AdmissionCycle $admissionCycle): View
+    public function edit(AdmissionCycle $admissionCycle): JsonResponse
     {
         $this->authorizeContentManagement();
 
@@ -76,7 +77,7 @@ class PublicAdmissionCycleController extends Controller
         ]));
     }
 
-    public function update(Request $request, AdmissionCycle $admissionCycle): RedirectResponse
+    public function update(Request $request, AdmissionCycle $admissionCycle): JsonResponse
     {
         $this->authorizeContentManagement();
         $validated = $this->validated($request);
@@ -91,11 +92,10 @@ class PublicAdmissionCycleController extends Controller
             $this->synchronizeChildren($cycle, $validated);
         });
 
-        return redirect()->route('admin.public-admissions.edit', $admissionCycle)
-            ->with('success', 'Public admissions content updated.');
+        return response()->json(["message" => 'Public admissions content updated.']);
     }
 
-    public function publish(AdmissionCycle $admissionCycle): RedirectResponse
+    public function publish(AdmissionCycle $admissionCycle): JsonResponse
     {
         $this->authorizeContentManagement();
 
@@ -116,22 +116,22 @@ class PublicAdmissionCycleController extends Controller
             $cycle->save();
         });
 
-        return back()->with('success', 'Public admissions cycle published.');
+        return response()->json(["message" => 'Public admissions cycle published.']);
     }
 
-    public function withdraw(AdmissionCycle $admissionCycle): RedirectResponse
+    public function withdraw(AdmissionCycle $admissionCycle): JsonResponse
     {
         return $this->transition($admissionCycle, 'withdrawn', 'Public admissions cycle withdrawn from the website.');
     }
 
-    public function archive(AdmissionCycle $admissionCycle): RedirectResponse
+    public function archive(AdmissionCycle $admissionCycle): JsonResponse
     {
         return $this->transition($admissionCycle, 'archived', 'Public admissions cycle archived.');
     }
 
-    private function formView(AdmissionCycle $cycle): View
+    private function formView(AdmissionCycle $cycle): JsonResponse
     {
-        return view('admin.public-admissions.form', [
+        return response()->json([
             'cycle' => $cycle,
             'statuses' => AdmissionCycle::PUBLIC_STATUSES,
             'states' => AdmissionCycle::PUBLICATION_STATES,
@@ -283,7 +283,7 @@ class PublicAdmissionCycleController extends Controller
         return $value === '' ? null : $value;
     }
 
-    private function transition(AdmissionCycle $admissionCycle, string $state, string $message): RedirectResponse
+    private function transition(AdmissionCycle $admissionCycle, string $state, string $message): JsonResponse
     {
         $this->authorizeContentManagement();
 
@@ -307,7 +307,7 @@ class PublicAdmissionCycleController extends Controller
             $cycle->save();
         });
 
-        return back()->with('success', $message);
+        return response()->json(["message" => $message]);
     }
 
     private function authorizeContentManagement(): void

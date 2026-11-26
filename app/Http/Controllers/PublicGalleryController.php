@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\GalleryAlbum;
 use App\Services\Gallery\GalleryVisibility;
 use Illuminate\Contracts\View\View;
@@ -11,9 +13,9 @@ class PublicGalleryController extends Controller
 {
     public function __construct(private GalleryVisibility $galleryVisibility) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
-        return view('frontend.gallery', [
+        return response()->json([
             'albums' => $this->galleryVisibility->displayableQuery()
                 ->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])
                 ->orderByDesc('published_at')
@@ -24,9 +26,9 @@ class PublicGalleryController extends Controller
         ]);
     }
 
-    public function archive(): View
+    public function archive(): JsonResponse
     {
-        return view('frontend.gallery', [
+        return response()->json([
             'albums' => $this->galleryVisibility->displayableQuery()
                 ->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])
                 ->orderByDesc('published_at')
@@ -37,12 +39,12 @@ class PublicGalleryController extends Controller
         ]);
     }
 
-    public function show(string $slug): View|RedirectResponse
+    public function show(string $slug): JsonResponse
     {
         $result = $this->galleryVisibility->findDisplayableSlug($slug);
 
         if ($result['redirect'] instanceof GalleryAlbum) {
-            return redirect()->route('public.gallery.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
 
         abort_unless($result['album'] instanceof GalleryAlbum, 404);
@@ -58,7 +60,7 @@ class PublicGalleryController extends Controller
             ? route('media.published', $cover->media_asset_id)
             : null;
 
-        return view('frontend.gallery-show', [
+        return response()->json([
             'album' => $album,
             'revision' => $revision,
             'cover' => $cover,

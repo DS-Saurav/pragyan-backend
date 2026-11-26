@@ -26,17 +26,17 @@ class ResultController extends Controller
 
         $data = ($exam && $class) ? $this->results->classResults($exam, $class) : null;
 
-        return view('admin.results.index', compact('exams', 'exam', 'classes', 'class', 'data'));
+        return response()->json(compact('exams', 'exam', 'classes', 'class', 'data'));
     }
 
     public function ledger(Exam $exam, SchoolClass $schoolClass)
     {
-        return view('admin.results.ledger', ['exam' => $exam, 'class' => $schoolClass] + $this->results->classResults($exam, $schoolClass));
+        return response()->json(['exam' => $exam, 'class' => $schoolClass] + $this->results->classResults($exam, $schoolClass));
     }
 
     public function marksheets(Exam $exam, SchoolClass $schoolClass)
     {
-        return view('admin.results.marksheet', ['exam' => $exam, 'class' => $schoolClass] + $this->results->classResults($exam, $schoolClass));
+        return response()->json(['exam' => $exam, 'class' => $schoolClass] + $this->results->classResults($exam, $schoolClass));
     }
 
     public function marksheet(Exam $exam, Student $student)
@@ -45,6 +45,6 @@ class ResultController extends Controller
         $data = $this->results->classResults($exam, $class);
         $data['rows'] = array_values(array_filter($data['rows'], fn ($r) => $r['student']->id === $student->id));
 
-        return view('admin.results.marksheet', ['exam' => $exam, 'class' => $class] + $data);
+        return response()->json(['exam' => $exam, 'class' => $class] + $data);
     }
 }

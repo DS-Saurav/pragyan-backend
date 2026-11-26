@@ -26,7 +26,7 @@ class SubjectController extends Controller
         // Fetch classes to display in the create/edit modal checkboxes or dropdowns
         $classes = class_exists(SchoolClass::class) ? SchoolClass::all() : [];
 
-        return view('admin.subjects.index', compact('subjects', 'classes'));
+        return response()->json(compact('subjects', 'classes'));
     }
 
     public function store(Request $request)
@@ -41,7 +41,7 @@ class SubjectController extends Controller
 
         Subject::create($validated);
 
-        return back()->with('success', 'Subject created successfully!');
+        return response()->json(["message" => 'Subject created successfully!']);
     }
 
     public function update(Request $request, Subject $subject)
@@ -56,14 +56,14 @@ class SubjectController extends Controller
 
         $subject->update($validated);
 
-        return back()->with('success', 'Subject updated successfully!');
+        return response()->json(["message" => 'Subject updated successfully!']);
     }
 
     public function destroy(Subject $subject)
     {
         $subject->delete();
 
-        return back()->with('success', 'Subject deleted successfully!');
+        return response()->json(["message" => 'Subject deleted successfully!']);
     }
 
     // Export Placeholders for CSV / Print

@@ -64,7 +64,7 @@ class AccountController extends Controller
             'digital' => $open['digital'] + $periodDigital,
         ];
 
-        return view('admin.accounts.index', [
+        return response()->json([
             'entries' => $entries,
             'counts' => $counts,
             'stats' => $stats,
@@ -81,21 +81,21 @@ class AccountController extends Controller
     {
         AccountEntry::create($this->validated($request) + ['recorded_by' => auth()->id()]);
 
-        return back()->with('success', 'Entry recorded.');
+        return response()->json(["message" => 'Entry recorded.']);
     }
 
     public function update(Request $request, AccountEntry $entry)
     {
         $entry->update($this->validated($request));
 
-        return back()->with('success', 'Entry updated.');
+        return response()->json(["message" => 'Entry updated.']);
     }
 
     public function destroy(AccountEntry $entry)
     {
         $entry->delete(); // soft delete
 
-        return back()->with('success', 'Entry deleted.');
+        return response()->json(["message" => 'Entry deleted.']);
     }
 
     /** Printable day book with a running balance. */
@@ -123,7 +123,7 @@ class AccountController extends Controller
             $rows[] = $r + ['balance' => round($balance, 2)];
         }
 
-        return view('admin.accounts.book', compact('from', 'to', 'opening', 'rows', 'receipts', 'payments', 'balance'));
+        return response()->json(compact('from', 'to', 'opening', 'rows', 'receipts', 'payments', 'balance'));
     }
 
     public function csv(Request $request): StreamedResponse

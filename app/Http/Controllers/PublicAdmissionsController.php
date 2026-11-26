@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Services\PublicAdmissions\AdmissionCycleResolver;
 use App\Services\PublicPhotos\PublicPhotoSlots;
 use App\Support\SiteIdentity;
@@ -14,9 +16,9 @@ class PublicAdmissionsController extends Controller
         private PublicPhotoSlots $publicPhotoSlots,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
-        return view('frontend.admissions', [
+        return response()->json([
             'identity' => SiteIdentity::publicProfile(),
             'cycle' => $this->admissionCycleResolver->current(),
             'heroPhoto' => $this->publicPhotoSlots->resolve('admissions_hero'),

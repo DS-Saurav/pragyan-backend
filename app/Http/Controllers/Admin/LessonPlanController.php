@@ -71,7 +71,7 @@ class LessonPlanController extends Controller
             $counts[$status] = (int) ($raw[$status] ?? 0);
         }
 
-        return view('admin.lesson-plans.index', [
+        return response()->json([
             'plans' => $plans,
             'counts' => $counts,
             'tab' => $tab,
@@ -86,14 +86,14 @@ class LessonPlanController extends Controller
     {
         LessonPlan::create($request->validate($this->rules()));
 
-        return redirect()->back()->with('success', 'Lesson plan created successfully.');
+        return response()->json(["message" => 'Lesson plan created successfully.']);
     }
 
     public function update(Request $request, LessonPlan $lessonPlan)
     {
         $lessonPlan->update($request->validate($this->rules()));
 
-        return redirect()->back()->with('success', 'Lesson plan updated successfully.');
+        return response()->json(["message" => 'Lesson plan updated successfully.']);
     }
 
     public function updateStatus(Request $request, LessonPlan $lessonPlan)
@@ -104,14 +104,14 @@ class LessonPlanController extends Controller
 
         $lessonPlan->update($data);
 
-        return redirect()->back()->with('success', 'Lesson status updated.');
+        return response()->json(["message" => 'Lesson status updated.']);
     }
 
     public function destroy(LessonPlan $lessonPlan)
     {
         $lessonPlan->delete();
 
-        return redirect()->back()->with('success', 'Lesson plan deleted.');
+        return response()->json(["message" => 'Lesson plan deleted.']);
     }
 
     public function csv(Request $request): StreamedResponse

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Support\SiteIdentity;
@@ -25,16 +27,16 @@ class PublicIdentityController extends Controller
         'public_visit_instructions',
     ];
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         Gate::authorize('public_identity.manage');
 
-        return view('admin.public-identity.edit', [
+        return response()->json([
             'identity' => SiteIdentity::publicProfile(),
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request): JsonResponse
     {
         Gate::authorize('public_identity.manage');
         $validated = $request->validate([
@@ -52,8 +54,7 @@ class PublicIdentityController extends Controller
             Setting::set($key, trim((string) ($validated[$key] ?? '')));
         }
 
-        return redirect()->route('admin.public-identity.index')
-            ->with('success', 'Verified public contact and visit details updated.');
+        return response()->json(["message" => 'Verified public contact and visit details updated.']);
     }
 
     private function safeHttpUrlRule(): Closure

@@ -112,7 +112,7 @@ class ComplaintController extends Controller
 
         $rows = $complaints->getCollection();
 
-        return view('admin.complaints.index', [
+        return response()->json([
             'complaints' => $complaints,
             'counts' => $counts,
             'stats' => $stats,
@@ -154,8 +154,7 @@ class ComplaintController extends Controller
             ]);
         });
 
-        return redirect()->route('admin.complaints.show', $complaint)
-            ->with('success', "Complaint {$complaint->complaint_no} filed. You can follow its progress on this page.");
+        return response()->json(["message" => "Complaint {$complaint->complaint_no} filed. You can follow its progress on this page."]);
     }
 
     public function show(Complaint $complaint)
@@ -198,7 +197,7 @@ class ComplaintController extends Controller
         $note = trim((string) ($data['resolution_note'] ?? ''));
 
         if ($closing && $data['status'] !== $complaint->status && $note === '') {
-            return back()->withErrors(['resolution_note' => 'Write a resolution note before resolving or dismissing. The person who filed the complaint will read it.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // Picking up an unassigned open complaint moves it to "investigating" unless staff chose a status themselves.
@@ -223,7 +222,7 @@ class ComplaintController extends Controller
         }
 
         if (! $public && ! $internal) {
-            return back()->with('success', 'Nothing changed.');
+            return response()->json(["message" => 'Nothing changed.']);
         }
 
         DB::transaction(function () use ($complaint, $data, $assigned, $closing, $note, $public, $internal) {
@@ -244,7 +243,7 @@ class ComplaintController extends Controller
             }
         });
 
-        return back()->with('success', 'Complaint updated.');
+        return response()->json(["message" => 'Complaint updated.']);
     }
 
     /** Staff only: flag an active complaint for senior review. */
@@ -253,7 +252,7 @@ class ComplaintController extends Controller
         $data = $request->validate(['reason' => ['required', 'string', 'max:255']]);
 
         if (! $complaint->isActive() || $complaint->is_escalated) {
-            return back()->withErrors(['reason' => 'Only an active complaint that is not already escalated can be escalated.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         DB::transaction(function () use ($complaint, $data) {
@@ -267,7 +266,7 @@ class ComplaintController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Complaint escalated.');
+        return response()->json(["message" => 'Complaint escalated.']);
     }
 
     public function reply(Request $request, Complaint $complaint)
@@ -275,7 +274,7 @@ class ComplaintController extends Controller
         abort_unless($this->manager() || $complaint->filed_by === auth()->id(), 403);
 
         if ($complaint->status === 'dismissed') {
-            return back()->withErrors(['body' => 'This complaint was dismissed. File a new complaint if you have new information.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $data = $request->validate([
@@ -318,14 +317,14 @@ class ComplaintController extends Controller
             }
         });
 
-        return back()->with('success', $internal ? 'Internal note added.' : ($reopened ? 'Complaint reopened.' : 'Message sent.'));
+        return response()->json(["message" => $internal ? 'Internal note added.' : ($reopened ? 'Complaint reopened.' : 'Message sent.')]);
     }
 
     public function destroy(Complaint $complaint)
     {
         $complaint->delete(); // soft delete: the complaint number is never reused
 
-        return redirect()->route('admin.complaints.index')->with('success', "Complaint {$complaint->complaint_no} deleted.");
+        return response()->json(["message" => "Complaint {$complaint->complaint_no} deleted."]);
     }
 
     public function csv(Request $request): StreamedResponse

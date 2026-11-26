@@ -24,7 +24,7 @@ class ExamSetupController extends Controller
 
         $available = Subject::whereNotIn('id', $rows->pluck('subject_id'))->orderBy('name')->get();
 
-        return view('admin.exams.setup', compact('exam', 'classes', 'class', 'rows', 'available')
+        return response()->json(compact('exam', 'classes', 'class', 'rows', 'available')
             + ['creditHoursReady' => $this->creditHoursReady()]);
     }
 
@@ -56,8 +56,7 @@ class ExamSetupController extends Controller
             $added += $es->wasRecentlyCreated ? 1 : 0;
         }
 
-        return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $class->id])
-            ->with('success', "{$added} subject(s) loaded. Adjust marks if needed, then click Save.");
+        return response()->json(["message" => "{$added} subject(s) loaded. Adjust marks if needed, then click Save."]);
     }
 
     public function add(Request $request, Exam $exam)
@@ -73,8 +72,7 @@ class ExamSetupController extends Controller
 
         $this->firstOrCreateRow($exam, (int) $data['class_id'], Subject::findOrFail($data['subject_id']));
 
-        return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $data['class_id']])
-            ->with('success', 'Subject added.');
+        return response()->json(["message" => 'Subject added.']);
     }
 
     public function save(Request $request, Exam $exam)
@@ -111,9 +109,7 @@ class ExamSetupController extends Controller
         if (! $creditHoursReady) {
             foreach ($data['rows'] as $row) {
                 if (array_key_exists('credit_hours', $row) && $row['credit_hours'] !== null) {
-                    return back()->withErrors(
-                        ['rows' => 'Credit hours cannot be saved yet: the pending exam_subjects.credit_hours migration is not applied. Nothing was saved - apply the migration first, then submit the setup again.']
-                    );
+                    return response()->json(["message" => "Validation failed."], 422);
                 }
             }
         }
@@ -130,11 +126,11 @@ class ExamSetupController extends Controller
             $pp = (float) ($row['practical_pass'] ?? 0);
 
             if ($tp > $tf || $pp > $pf) {
-                return back()->withErrors(['rows' => 'Pass marks cannot be higher than full marks ('.($es->subject->name ?? '').').']);
+                return response()->json(["message" => "Validation failed."], 422);
             }
 
             if (! empty($row['start_time']) && ! empty($row['end_time']) && $row['end_time'] <= $row['start_time']) {
-                return back()->withErrors(['rows' => 'End time must be after start time ('.($es->subject->name ?? '').').']);
+                return response()->json(["message" => "Validation failed."], 422);
             }
 
             $update = [
@@ -156,8 +152,7 @@ class ExamSetupController extends Controller
             $es->update($update);
         }
 
-        return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $data['class_id']])
-            ->with('success', 'Exam setup saved.');
+        return response()->json(["message" => 'Exam setup saved.']);
     }
 
     /** Copy this class's setup to other classes. */
@@ -195,8 +190,7 @@ class ExamSetupController extends Controller
             }
         }
 
-        return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $data['class_id']])
-            ->with('success', "Copied. {$created} subject row(s) created in the other classes.");
+        return response()->json(["message" => "Copied. {$created} subject row(s) created in the other classes."]);
     }
 
     public function remove(Exam $exam, ExamSubject $examSubject)
@@ -208,8 +202,7 @@ class ExamSetupController extends Controller
         $classId = $examSubject->school_class_id;
         $examSubject->delete(); // also deletes marks entered for it
 
-        return redirect()->route('admin.exams.setup', [$exam, 'class_id' => $classId])
-            ->with('success', 'Subject removed from this exam.');
+        return response()->json(["message" => 'Subject removed from this exam.']);
     }
 
     private function firstOrCreateRow(Exam $exam, int $classId, Subject $s): ExamSubject

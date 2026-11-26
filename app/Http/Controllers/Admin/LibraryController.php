@@ -51,7 +51,7 @@ class LibraryController extends Controller
         $teachers = $this->memberList(Teacher::class);
         $finePerDay = self::FINE_PER_DAY;
 
-        return view('admin.library.index', compact(
+        return response()->json(compact(
             'books', 'issueBooks', 'stats', 'viewMode',
             'students', 'teachers', 'overdueFine', 'finePerDay'
         ));
@@ -77,9 +77,7 @@ class LibraryController extends Controller
         // without a cover keeps working. The error surfaces beside the cover
         // input inside the reopened add-book modal (default bag + old input).
         if ($request->hasFile('cover_image') && ! Schema::hasColumn('books', 'cover_image')) {
-            return back()->withErrors([
-                'cover_image' => 'Cover image storage is not yet available: the books table has no cover_image column. Please approve the database schema change first.',
-            ])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         if ($request->hasFile('cover_image')) {
@@ -94,14 +92,14 @@ class LibraryController extends Controller
                 throw $e;
             }
 
-            return back()->with('success', 'Book added to catalog successfully!');
+            return response()->json(["message" => 'Book added to catalog successfully!']);
         }
 
         // Generate the accession number and insert inside a transaction so
         // concurrent creators cannot reuse the same number.
         $this->createWithUniqueAccNo($validated);
 
-        return back()->with('success', 'Book added to catalog successfully!');
+        return response()->json(["message" => 'Book added to catalog successfully!']);
     }
 
     /**
@@ -171,9 +169,7 @@ class LibraryController extends Controller
         // files, and the previous cover is never deleted). Updating ordinary
         // book details without a replacement keeps working.
         if ($request->hasFile('cover_image') && ! Schema::hasColumn('books', 'cover_image')) {
-            return back()->withErrors([
-                'cover_image' => 'Cover image storage is not yet available: the books table has no cover_image column. Please approve the database schema change first.',
-            ])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $newPath = null;
@@ -229,9 +225,7 @@ class LibraryController extends Controller
                 Storage::disk('public')->delete($newPath); // nothing was persisted
             }
 
-            return back()->withErrors([
-                'total_copies' => 'Total copies cannot be less than the number of copies currently issued.',
-            ])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // Persistence succeeded: now it is safe to retire the previous cover.
@@ -239,7 +233,7 @@ class LibraryController extends Controller
             Storage::disk('public')->delete($oldPath);
         }
 
-        return back()->with('success', 'Book catalog updated successfully!');
+        return response()->json(["message" => 'Book catalog updated successfully!']);
     }
 
     public function destroyBook(Book $book)
@@ -263,12 +257,10 @@ class LibraryController extends Controller
         });
 
         if ($blocked) {
-            return back()->withErrors([
-                'book' => 'This book cannot be deleted while copies are still issued. Please return them first.',
-            ]);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
-        return back()->with('success', 'Book removed from catalog!');
+        return response()->json(["message" => 'Book removed from catalog!']);
     }
 
     public function circulation(Request $request)
@@ -299,7 +291,7 @@ class LibraryController extends Controller
         $teachers = $this->memberList(Teacher::class);
         $finePerDay = self::FINE_PER_DAY;
 
-        return view('admin.library.circulation', compact(
+        return response()->json(compact(
             'issues', 'issueBooks', 'students', 'teachers', 'statusTab', 'counts', 'finePerDay'
         ));
     }
@@ -325,7 +317,7 @@ class LibraryController extends Controller
         }
 
         if (! $memberName) {
-            return back()->withErrors(['member_name' => 'Please select a member.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // Issue atomically: lock the book row so concurrent requests cannot
@@ -353,10 +345,10 @@ class LibraryController extends Controller
         });
 
         if (! $issued) {
-            return back()->withErrors(['book_id' => 'Selected book has no available copies left.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
-        return back()->with('success', 'Book issued successfully!');
+        return response()->json(["message" => 'Book issued successfully!']);
     }
 
     public function returnBook(BookIssue $issue)
@@ -397,10 +389,10 @@ class LibraryController extends Controller
         });
 
         if ($result['status'] === 'already_returned') {
-            return back()->with('success', 'This book has already been returned.');
+            return response()->json(["message" => 'This book has already been returned.']);
         }
 
-        return back()->with('success', "Book returned successfully! Fine collected: ₹{$result['fine']}");
+        return response()->json(["message" => "Book returned successfully! Fine collected: ₹{$result['fine']}"]);
     }
 
     /**

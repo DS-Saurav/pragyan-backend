@@ -39,7 +39,7 @@ class ConductController extends Controller
 
         $students = Student::select('id', 'first_name', 'last_name')->get();
 
-        return view('admin.conduct.index', compact('entries', 'totalCount', 'meritCount', 'demeritCount', 'students'));
+        return response()->json(compact('entries', 'totalCount', 'meritCount', 'demeritCount', 'students'));
     }
 
     public function store(Request $request)
@@ -56,16 +56,14 @@ class ConductController extends Controller
 
         ConductRegister::create($validated);
 
-        return redirect()->route('admin.conduct.index')
-            ->with('success', 'Conduct register entry recorded successfully.');
+        return response()->json(["message" => 'Conduct register entry recorded successfully.']);
     }
 
     public function destroy(ConductRegister $conduct)
     {
         $conduct->delete();
 
-        return redirect()->route('admin.conduct.index')
-            ->with('success', 'Conduct entry deleted successfully.');
+        return response()->json(["message" => 'Conduct entry deleted successfully.']);
     }
 
     public function edit(ConductRegister $conduct)
@@ -89,7 +87,6 @@ class ConductController extends Controller
 
         $conduct->update($validated);
 
-        return redirect()->route('admin.conduct.index')
-            ->with('success', 'Conduct register entry updated successfully.');
+        return response()->json(["message" => 'Conduct register entry updated successfully.']);
     }
 }

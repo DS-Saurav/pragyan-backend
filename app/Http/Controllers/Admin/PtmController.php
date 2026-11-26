@@ -31,7 +31,7 @@ class PtmController extends Controller
         $completedCount = PtmMeeting::where('status', 'completed')->count();
         $cancelledCount = PtmMeeting::where('status', 'cancelled')->count();
 
-        return view('admin.ptm.index', compact(
+        return response()->json(compact(
             'meetings', 'classes', 'tab', 'totalCount', 'scheduledCount', 'completedCount', 'cancelledCount'
         ));
     }
@@ -50,7 +50,7 @@ class PtmController extends Controller
 
         PtmMeeting::create($validated);
 
-        return back()->with('success', 'PTM Meeting scheduled successfully!');
+        return response()->json(["message" => 'PTM Meeting scheduled successfully!']);
     }
 
     public function update(Request $request, PtmMeeting $ptm)
@@ -67,13 +67,13 @@ class PtmController extends Controller
 
         $ptm->update($validated);
 
-        return back()->with('success', 'PTM Meeting updated successfully!');
+        return response()->json(["message" => 'PTM Meeting updated successfully!']);
     }
 
     public function destroy(PtmMeeting $ptm)
     {
         $ptm->delete();
 
-        return back()->with('success', 'Meeting record deleted successfully!');
+        return response()->json(["message" => 'Meeting record deleted successfully!']);
     }
 }

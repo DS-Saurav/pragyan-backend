@@ -28,7 +28,7 @@ class WebsiteSettingsController extends Controller
     {
         $this->authorizeHomepageManagement();
 
-        return view('admin.settings.website', [
+        return response()->json([
             'settings' => SiteIdentity::all(),
             'rotations' => self::ROTATIONS,
             'heroes' => self::heroes(),
@@ -95,8 +95,7 @@ class WebsiteSettingsController extends Controller
         }
         Setting::set('website_home_highlights', json_encode($highlights));
 
-        return redirect()->route('admin.settings.website.index')
-            ->with('success', 'Website content updated. The homepage reflects it immediately.');
+        return response()->json(["message" => 'Website content updated. The homepage reflects it immediately.']);
     }
 
     public function uploadImages(Request $request)
@@ -114,7 +113,7 @@ class WebsiteSettingsController extends Controller
         ], [], ['hero_files' => 'hero files']);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator, 'upload');
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $current = self::heroes();
@@ -137,9 +136,7 @@ class WebsiteSettingsController extends Controller
         if ($appended === 0) {
             // Validation passed the files' semantics but GD could not process
             // any of them — reported in the upload bag as well, never globally.
-            return back()->withErrors([
-                'processing' => 'No hero image could be processed. Use a photograph at least 480×280 px.',
-            ], 'upload');
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // Uploading touches ONLY the hero image list — every other website
@@ -147,8 +144,7 @@ class WebsiteSettingsController extends Controller
         // exactly as saved.
         Setting::set('website_hero_images', json_encode($current));
 
-        return redirect()->route('admin.settings.website.index')
-            ->with('success', $appended.' hero '.($appended === 1 ? 'image' : 'images').' uploaded. Add alt text below, then save details.');
+        return response()->json(["message" => $appended.' hero '.($appended === 1 ? 'image' : 'images').' uploaded. Add alt text below, then save details.']);
     }
 
     public function imageAction(Request $request)
@@ -162,7 +158,7 @@ class WebsiteSettingsController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator, 'upload');
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $validated = $validator->validated();
@@ -171,7 +167,7 @@ class WebsiteSettingsController extends Controller
         $index = (int) $validated['index'];
 
         if (! array_key_exists($index, $heroes)) {
-            return back();
+            return response()->json(["ok" => true]);
         }
 
         $removedPath = null;
@@ -192,11 +188,10 @@ class WebsiteSettingsController extends Controller
             Storage::disk('public')->delete($removedPath);
         }
 
-        return redirect()->route('admin.settings.website.index')
-            ->with('success', match ($validated['action']) {
+        return response()->json(["message" => match ($validated['action']) {
                 'move-up', 'move-down' => 'Hero image order updated.',
                 default => 'Hero image removed.',
-            });
+            }]);
     }
 
     /** Validation rules reused by the details form (headline/intro/CTAs/stats). */

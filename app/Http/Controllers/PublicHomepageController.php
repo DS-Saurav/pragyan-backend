@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Admin\WebsiteSettingsController;
 use App\Models\PublicAcademicStage;
 use App\Models\PublicPage;
@@ -33,7 +35,7 @@ class PublicHomepageController extends Controller
         private PublicPhotoSlots $publicPhotoSlots,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         $today = CarbonImmutable::now(AdmissionCycleResolver::TIMEZONE)->toDateString();
         $identity = SiteIdentity::publicProfile();
@@ -42,7 +44,7 @@ class PublicHomepageController extends Controller
         $academicsPage = $this->publicPageVisibility->page(PublicPage::TYPE_ACADEMICS);
         $academicsRevision = $academicsPage?->publishedRevision;
 
-        return view('welcome', [
+        return response()->json([
             'identity' => $identity,
             'homeHeroPhoto' => $this->publicPhotoSlots->resolve('home_hero'),
             'homeLearningPhoto' => $this->publicPhotoSlots->resolve('home_learning'),

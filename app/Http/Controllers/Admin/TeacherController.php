@@ -3,29 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\SchoolClass;
-use App\Models\Subject;
 use App\Models\Teacher;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $statusTab = $request->get('tab', 'all');
-
         $query = Teacher::query();
 
-        if ($statusTab === 'active') {
-            $query->where('status', 'active');
-        } elseif ($statusTab === 'inactive') {
-            $query->where('status', 'inactive');
-        } elseif ($statusTab === 'suspended') {
-            $query->where('status', 'suspended');
+        if (in_array($statusTab, ['active', 'inactive', 'suspended'], true)) {
+            $query->where('status', $statusTab);
         }
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = $request->string('search')->toString();
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
@@ -35,31 +29,24 @@ class TeacherController extends Controller
             });
         }
 
-        $teachers = $query->latest()->paginate(10)->withQueryString();
+        $teachers = $query->latest()->get()->map(fn (Teacher $t) => $this->formatTeacher($t));
 
-        $counts = [
-            'all' => Teacher::count(),
-            'active' => Teacher::where('status', 'active')->count(),
-            'inactive' => Teacher::where('status', 'inactive')->count(),
-            'suspended' => Teacher::where('status', 'suspended')->count(),
-            'class_teachers' => Teacher::whereNotNull('class_teacher_of')->where('class_teacher_of', '!=', '')->count(),
-        ];
+        $all = Teacher::all();
+        $totalAssignments = $all->sum(fn (Teacher $t) => is_array($t->assignments) ? count($t->assignments) : 0);
 
-        $totalAssignments = 0;
-        foreach (Teacher::all() as $t) {
-            if (is_array($t->assignments)) {
-                $totalAssignments += count($t->assignments);
-            }
-        }
-        $counts['assignments'] = $totalAssignments;
-
-        $classes = SchoolClass::all();
-        $subjects = Subject::all();
-
-        return view('admin.teachers.index', compact('teachers', 'counts', 'classes', 'subjects', 'statusTab'));
+        return response()->json([
+            'teachers' => $teachers,
+            'counts' => [
+                'all' => $all->count(),
+                'active' => $all->where('status', 'active')->count(),
+                'inactive' => $all->where('status', 'inactive')->count(),
+                'suspended' => $all->where('status', 'suspended')->count(),
+                'assignments' => $totalAssignments,
+            ],
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
@@ -74,15 +61,15 @@ class TeacherController extends Controller
         ]);
 
         if (empty($validated['username'])) {
-            $validated['username'] = '@'.strtolower($validated['first_name'].$validated['last_name']);
+            $validated['username'] = '@'.strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $validated['first_name'].$validated['last_name']));
         }
 
-        Teacher::create($validated);
+        $teacher = Teacher::create($validated);
 
-        return back()->with('success', 'Teacher registered successfully!');
+        return response()->json(['teacher' => $this->formatTeacher($teacher)], 201);
     }
 
-    public function update(Request $request, Teacher $teacher)
+    public function update(Request $request, Teacher $teacher): JsonResponse
     {
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
@@ -98,10 +85,10 @@ class TeacherController extends Controller
 
         $teacher->update($validated);
 
-        return back()->with('success', 'Teacher details updated successfully!');
+        return response()->json(['teacher' => $this->formatTeacher($teacher->fresh())]);
     }
 
-    public function assign(Request $request, Teacher $teacher)
+    public function assign(Request $request, Teacher $teacher): JsonResponse
     {
         $validated = $request->validate([
             'class_name' => 'required|string',
@@ -114,54 +101,52 @@ class TeacherController extends Controller
             'class' => $validated['class_name'],
             'subject' => $validated['subject_name'],
         ];
-
         $teacher->update(['assignments' => $assignments]);
 
-        return back()->with('success', 'Class & subject assigned successfully!');
+        return response()->json(['teacher' => $this->formatTeacher($teacher->fresh())]);
     }
 
-    public function removeAssignment(Request $request, Teacher $teacher, $assignmentId)
+    public function removeAssignment(Teacher $teacher, string $assignmentId): JsonResponse
     {
-        $assignments = $teacher->assignments ?? [];
-        $assignments = array_values(array_filter($assignments, function ($a) use ($assignmentId) {
-            return ($a['id'] ?? '') !== $assignmentId;
-        }));
-
+        $assignments = collect($teacher->assignments ?? [])
+            ->reject(fn ($item) => ($item['id'] ?? null) === $assignmentId)
+            ->values()
+            ->all();
         $teacher->update(['assignments' => $assignments]);
 
-        return back()->with('success', 'Assignment removed successfully!');
+        return response()->json(['teacher' => $this->formatTeacher($teacher->fresh())]);
     }
 
-    public function destroy(Teacher $teacher)
+    public function destroy(Teacher $teacher): JsonResponse
     {
         $teacher->delete();
 
-        return back()->with('success', 'Teacher removed successfully!');
+        return response()->json(['deleted' => true]);
     }
 
-    public function exportCsv()
+    public function exportCsv(): JsonResponse
     {
-        $fileName = 'teachers_'.date('Y-m-d').'.csv';
-        $teachers = Teacher::all();
+        return response()->json(['teachers' => Teacher::all()]);
+    }
 
-        $headers = [
-            'Content-type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=$fileName",
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+    private function formatTeacher(Teacher $t): array
+    {
+        $assignments = is_array($t->assignments) ? $t->assignments : [];
+        $classesCount = count(array_unique(array_filter(array_column($assignments, 'class'))));
+
+        return [
+            'id' => $t->id,
+            'firstName' => $t->first_name,
+            'lastName' => $t->last_name,
+            'username' => $t->username ?? '@'.strtolower($t->first_name),
+            'email' => $t->email,
+            'phone' => $t->phone ?? '',
+            'department' => $t->department ?? '',
+            'specialization' => $t->specialization ?? '',
+            'classesCount' => $classesCount,
+            'assignmentsCount' => count($assignments),
+            'classTeacherOf' => $t->class_teacher_of ?: null,
+            'status' => $t->status ?? 'active',
         ];
-
-        $callback = function () use ($teachers) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, ['First Name', 'Last Name', 'Username', 'Email', 'Phone', 'Specialization', 'Status']);
-
-            foreach ($teachers as $t) {
-                fputcsv($file, [$t->first_name, $t->last_name, $t->username, $t->email, $t->phone, $t->specialization, $t->status]);
-            }
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
     }
 }

@@ -22,7 +22,7 @@ class StaffController extends Controller
 
         $notImported = Teacher::whereNotIn('id', StaffMember::whereNotNull('teacher_id')->pluck('teacher_id'))->count();
 
-        return view('admin.payroll.staff', compact('staff', 'components', 'usedComponentIds', 'notImported'));
+        return response()->json(compact('staff', 'components', 'usedComponentIds', 'notImported'));
     }
 
     public function store(Request $request)
@@ -34,7 +34,7 @@ class StaffController extends Controller
             $staff->components()->sync($this->syncData($data['components'] ?? []));
         });
 
-        return back()->with('success', 'Staff member added.');
+        return response()->json(["message" => 'Staff member added.']);
     }
 
     public function update(Request $request, StaffMember $staff)
@@ -46,18 +46,18 @@ class StaffController extends Controller
             $staff->components()->sync($this->syncData($data['components'] ?? []));
         });
 
-        return back()->with('success', 'Staff member updated. Slips that already exist are not changed.');
+        return response()->json(["message" => 'Staff member updated. Slips that already exist are not changed.']);
     }
 
     public function destroy(StaffMember $staff)
     {
         if (SalarySlip::withTrashed()->where('staff_member_id', $staff->id)->exists()) {
-            return back()->withErrors(['staff' => 'This person already has salary slips, so they cannot be deleted. Set them to Inactive instead.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $staff->delete();
 
-        return back()->with('success', 'Staff member deleted.');
+        return response()->json(["message" => 'Staff member deleted.']);
     }
 
     /** Copy teachers that are not in payroll yet. Basic salary stays 0 until you set it. */
@@ -79,7 +79,7 @@ class StaffController extends Controller
             $count++;
         }
 
-        return back()->with('success', "{$count} teacher(s) imported. Now set each person's basic salary before running payroll.");
+        return response()->json(["message" => "{$count} teacher(s) imported. Now set each person's basic salary before running payroll."]);
     }
 
     // ---------------- Salary components ----------------
@@ -93,7 +93,7 @@ class StaffController extends Controller
             'default_value' => ['nullable', 'numeric', 'min:0'],
         ]) + ['default_value' => $request->input('default_value') ?: 0]);
 
-        return back()->with('success', 'Component added.');
+        return response()->json(["message" => 'Component added.']);
     }
 
     public function updateComponent(Request $request, SalaryComponent $component)
@@ -109,18 +109,18 @@ class StaffController extends Controller
 
         $component->update($data);
 
-        return back()->with('success', 'Component updated.');
+        return response()->json(["message" => 'Component updated.']);
     }
 
     public function destroyComponent(SalaryComponent $component)
     {
         if (DB::table('staff_salary_components')->where('salary_component_id', $component->id)->exists()) {
-            return back()->withErrors(['component' => 'This component is used in staff salary structures. Switch it off instead of deleting it.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $component->delete();
 
-        return back()->with('success', 'Component deleted.');
+        return response()->json(["message" => 'Component deleted.']);
     }
 
     // ---------------------------------------------------------------------

@@ -99,7 +99,7 @@ class DocumentController extends Controller
             ];
         }
 
-        return view('admin.documents.index', [
+        return response()->json([
             'documents' => $documents,
             'counts' => $counts,
             'stats' => $stats,
@@ -153,7 +153,7 @@ class DocumentController extends Controller
         $data = $request->validate($this->rules($request));
 
         if (! $request->hasFile('file') && blank($data['external_url'] ?? null)) {
-            return back()->withErrors(['file' => 'Upload a file or paste a link. A document needs at least one of them.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $attrs = $this->attributes($request, $data) + ['uploaded_by' => auth()->id(), 'version' => 1];
@@ -164,7 +164,7 @@ class DocumentController extends Controller
 
         $doc = SchoolDocument::create($attrs);
 
-        return back()->with('success', '"'.$doc->title.'" '.($doc->is_published ? 'is now available to '.strtolower(SchoolDocument::AUDIENCES[$doc->audience]).'.' : 'was saved as a draft.'));
+        return response()->json(["message" => '"'.$doc->title.'" '.($doc->is_published ? 'is now available to '.strtolower(SchoolDocument::AUDIENCES[$doc->audience]).'.' : 'was saved as a draft.')]);
     }
 
     public function update(Request $request, SchoolDocument $document)
@@ -174,7 +174,7 @@ class DocumentController extends Controller
         $file = $request->file('file');
 
         if (! $file && ! $document->file_path && blank($data['external_url'] ?? null)) {
-            return back()->withErrors(['file' => 'Upload a file or paste a link. A document needs at least one of them.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $newVersion = false;
@@ -219,8 +219,7 @@ class DocumentController extends Controller
                         'leftover_file' => $oldPath,
                     ]);
 
-                    return back()->with('success', "\"{$document->title}\" updated to version {$document->version}.")
-                        ->with('warning', 'The update was saved, but the previous file could not be removed from storage. An administrator may need to delete the leftover file: '.$oldPath);
+                    return response()->json(["message" => "\"{$document->title}\" updated to version {$document->version}."]);
                 }
             } elseif (!$metadataSaved) {
                 // Update failed: remove the newly stored file so the previous
@@ -231,7 +230,7 @@ class DocumentController extends Controller
             }
         }
 
-        return back()->with('success', $newVersion ? "\"{$document->title}\" updated to version {$document->version}." : 'Document updated.');
+        return response()->json(["message" => $newVersion ? "\"{$document->title}\" updated to version {$document->version}." : 'Document updated.']);
     }
 
     /** Switch between published and draft without opening the edit form. */
@@ -239,14 +238,14 @@ class DocumentController extends Controller
     {
         $document->update(['is_published' => ! $document->is_published]);
 
-        return back()->with('success', $document->is_published ? 'Document published.' : 'Document moved to drafts.');
+        return response()->json(["message" => $document->is_published ? 'Document published.' : 'Document moved to drafts.']);
     }
 
     public function destroy(SchoolDocument $document)
     {
         $document->delete(); // soft delete: the file stays in storage so the document can be restored
 
-        return back()->with('success', 'Document deleted.');
+        return response()->json(["message" => 'Document deleted.']);
     }
 
     /** Download, preview or open the link. The audience check happens here, on every request. */
@@ -261,11 +260,11 @@ class DocumentController extends Controller
         ]);
 
         if (! $document->file_path && $document->external_url) {
-            return redirect()->away($document->external_url);
+            return response()->json(["ok" => true]);
         }
 
         if (! $document->file_path || ! Storage::disk(self::DISK)->exists($document->file_path)) {
-            return back()->withErrors(['file' => 'The file for "'.$document->title.'" is missing from storage. Please ask an administrator to upload it again.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         if ($request->boolean('view') && $document->isPreviewable()) {

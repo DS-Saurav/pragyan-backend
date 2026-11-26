@@ -28,7 +28,7 @@ class AdmissionController extends Controller
 
         $classes = \App\Models\SchoolClass::pluck('name');
 
-        return view('admin.admissions.index', compact('admissions', 'counts', 'status', 'classes'));
+        return response()->json(compact('admissions', 'counts', 'status', 'classes'));
     }
 
     public function store(Request $request)
@@ -52,7 +52,7 @@ class AdmissionController extends Controller
 
         Admission::create($validated);
 
-        return redirect()->route('admin.admissions.index')->with('success', 'New registration created successfully!');
+        return response()->json(["message" => 'New registration created successfully!']);
     }
 
     public function updateStatus(Request $request, Admission $admission)
@@ -69,12 +69,12 @@ class AdmissionController extends Controller
                 : null,
         ]);
 
-        return back()->with('success', 'Admission status updated successfully!');
+        return response()->json(["message" => 'Admission status updated successfully!']);
     }
 
     public function destroy(Admission $admission)
     {
         $admission->delete();
-        return back()->with('success', 'Registration deleted successfully!');
+        return response()->json(["message" => 'Registration deleted successfully!']);
     }
 }

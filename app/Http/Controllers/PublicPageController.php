@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\PublicPage;
 use App\Models\PublicPageRevision;
 use App\Services\Media\MediaFiles;
@@ -20,17 +22,17 @@ class PublicPageController extends Controller
         private PublicPhotoSlots $publicPhotoSlots,
     ) {}
 
-    public function about(): View
+    public function about(): JsonResponse
     {
         return $this->pageView(PublicPage::TYPE_ABOUT, 'frontend.about');
     }
 
-    public function academics(): View
+    public function academics(): JsonResponse
     {
         return $this->pageView(PublicPage::TYPE_ACADEMICS, 'frontend.academics');
     }
 
-    private function pageView(string $type, string $view): View
+    private function pageView(string $type, string $view): JsonResponse
     {
         $page = $this->visibility->page($type);
         $revision = $page?->publishedRevision;
@@ -47,7 +49,7 @@ class PublicPageController extends Controller
             }
         }
 
-        return view($view, [
+        return response()->json([
             'page' => $page,
             'revision' => $revision,
             'featureUrl' => $featureUrl,

@@ -41,7 +41,7 @@ class SubstituteController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('substitutes.index', compact('entries', 'teachers'));
+        return response()->json(compact('entries', 'teachers'));
     }
 
     public function store(Request $request)
@@ -59,15 +59,13 @@ class SubstituteController extends Controller
 
         SubstituteAllocation::create($validated);
 
-        return redirect()->route('admin.substitutes.index')
-            ->with('success', 'Substitute teacher allocated successfully.');
+        return response()->json(["message" => 'Substitute teacher allocated successfully.']);
     }
 
     public function destroy(SubstituteAllocation $substitute)
     {
         $substitute->delete();
 
-        return redirect()->route('admin.substitutes.index')
-            ->with('success', 'Substitute allocation removed successfully.');
+        return response()->json(["message" => 'Substitute allocation removed successfully.']);
     }
 }

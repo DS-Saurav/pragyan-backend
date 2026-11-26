@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -12,24 +14,14 @@ final class PublicLocalePreferenceController extends Controller
      * authoritative: the cookie is a convenience for a later visit, never a
      * reason to redirect a visitor based on browser or request heuristics.
      */
-    public function __invoke(Request $request, string $locale): RedirectResponse
+    public function __invoke(Request $request, string $locale): JsonResponse
     {
         abort_unless(in_array($locale, ['en', 'ne'], true), 404);
 
         $target = $this->safeTarget($request->query('to'));
         $minutes = 60 * 24 * 365;
 
-        return redirect()->to($target)->withCookie(cookie(
-            'pp_locale',
-            $locale,
-            $minutes,
-            '/',
-            null,
-            $request->isSecure(),
-            true,
-            false,
-            'lax',
-        ));
+        return response()->json(["ok" => true]);
     }
 
     private function safeTarget(mixed $value): string

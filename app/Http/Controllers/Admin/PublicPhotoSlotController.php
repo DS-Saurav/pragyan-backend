@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Models\PublicPhotoSlot;
@@ -13,7 +15,7 @@ use Illuminate\Support\Facades\Gate;
 
 class PublicPhotoSlotController extends Controller
 {
-    public function index(PublicPhotoSlots $photos): View
+    public function index(PublicPhotoSlots $photos): JsonResponse
     {
         Gate::authorize('public_homepage.manage');
         abort_unless(auth()->user()?->hasRole('admin'), 403);
@@ -26,7 +28,7 @@ class PublicPhotoSlotController extends Controller
             ->get()
             ->filter(fn (MediaAsset $asset): bool => $photos->assetIsPublic($asset));
 
-        return view('admin.public-photos.index', [
+        return response()->json([
             'labels' => PublicPhotoSlots::LABELS,
             'slots' => PublicPhotoSlot::query()->with('asset')->get()->keyBy('slot_key'),
             'assets' => $assets,
@@ -35,11 +37,10 @@ class PublicPhotoSlotController extends Controller
         ]);
     }
 
-    public function update(Request $request, string $slot, PublicPhotoSlots $photos): RedirectResponse
+    public function update(Request $request, string $slot, PublicPhotoSlots $photos): JsonResponse
     {
         $photos->save($request->user(), $slot, $request->all());
 
-        return redirect()->route('admin.public-photos.index')
-            ->with('success', 'Public photograph selection saved.');
+        return response()->json(["message" => 'Public photograph selection saved.']);
     }
 }

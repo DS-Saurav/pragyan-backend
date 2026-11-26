@@ -92,7 +92,7 @@ class PayrollController extends Controller
             'lines' => $s->defaultLines(),
         ]]);
 
-        return view('admin.payroll.index', [
+        return response()->json([
             'slips' => $slips,
             'counts' => $counts,
             'stats' => $stats,
@@ -117,32 +117,32 @@ class PayrollController extends Controller
         $staff = StaffMember::findOrFail($data['staff_member_id']);
 
         if (SalarySlip::where('staff_member_id', $staff->id)->where('month', $data['month'])->exists()) {
-            return back()->withErrors(['slip' => $staff->name.' already has a salary slip for '.SalarySlip::monthLabel($data['month']).'.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $calc = $this->calculate($data);
         if (is_string($calc)) {
-            return back()->withErrors(['slip' => $calc])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         DB::transaction(function () use ($data, $staff, $calc) {
             $this->createSlip($staff, $data['month'], (float) $data['basic'], (int) $data['working_days'], (float) ($data['unpaid_days'] ?? 0), $calc, $data['remarks'] ?? null);
         });
 
-        return back()->with('success', 'Salary slip generated for '.$staff->name.'.');
+        return response()->json(["message" => 'Salary slip generated for '.$staff->name.'.']);
     }
 
     public function update(Request $request, SalarySlip $slip)
     {
         if ($slip->status !== 'generated') {
-            return back()->withErrors(['slip' => 'A paid slip cannot be edited. Use "Undo payment" first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $data = $request->validate($this->rules());
 
         $calc = $this->calculate($data);
         if (is_string($calc)) {
-            return back()->withErrors(['slip' => $calc])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         DB::transaction(function () use ($slip, $data, $calc) {
@@ -160,7 +160,7 @@ class PayrollController extends Controller
             $slip->lines()->createMany($calc['lines']);
         });
 
-        return back()->with('success', 'Salary slip updated.');
+        return response()->json(["message" => 'Salary slip updated.']);
     }
 
     /** Create a slip for every active staff member who does not have one for the month yet. */
@@ -204,7 +204,7 @@ class PayrollController extends Controller
             $message .= " {$skippedNoBasic} staff skipped because their basic salary is 0.";
         }
 
-        return redirect()->route('admin.payroll.index', ['month' => $data['month']])->with('success', $message);
+        return response()->json(["message" => $message]);
     }
 
     public function pay(Request $request, SalarySlip $slip)
@@ -212,12 +212,12 @@ class PayrollController extends Controller
         $data = $request->validate($this->payRules());
 
         if ($slip->status !== 'generated') {
-            return back()->withErrors(['pay' => 'This slip is already paid.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $slip->update($data + ['status' => 'paid', 'paid_by' => auth()->id()]);
 
-        return back()->with('success', 'Marked as paid.')->with('print_slip', $slip->id);
+        return response()->json(["message" => 'Marked as paid.']);
     }
 
     public function payAll(Request $request)
@@ -229,7 +229,7 @@ class PayrollController extends Controller
         $total = (float) (clone $query)->sum('net_pay');
 
         if ($count === 0) {
-            return back()->withErrors(['pay' => 'There are no unpaid slips for that month.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $query->update([
@@ -240,29 +240,29 @@ class PayrollController extends Controller
             'paid_by' => auth()->id(),
         ]);
 
-        return back()->with('success', "{$count} slip(s) marked as paid (total ".Money::format($total).').');
+        return response()->json(["message" => "{$count} slip(s) marked as paid (total ".Money::format($total).').']);
     }
 
     public function unpay(SalarySlip $slip)
     {
         if ($slip->status !== 'paid') {
-            return back();
+            return response()->json(["ok" => true]);
         }
 
         $slip->update(['status' => 'generated', 'paid_on' => null, 'payment_mode' => null, 'reference_no' => null, 'paid_by' => null]);
 
-        return back()->with('success', 'Payment undone. The slip is back to Generated.');
+        return response()->json(["message" => 'Payment undone. The slip is back to Generated.']);
     }
 
     public function destroy(SalarySlip $slip)
     {
         if ($slip->status !== 'generated') {
-            return back()->withErrors(['slip' => 'A paid slip cannot be deleted. Undo the payment first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $slip->delete(); // soft delete: the slip number is never reused
 
-        return back()->with('success', 'Salary slip deleted.');
+        return response()->json(["message" => 'Salary slip deleted.']);
     }
 
     /** Printable slip (one). */
@@ -270,7 +270,7 @@ class PayrollController extends Controller
     {
         $slips = collect([$slip->load('lines', 'staff')]);
 
-        return view('admin.payroll.slip', compact('slips'));
+        return response()->json(compact('slips'));
     }
 
     /** Printable slips for a whole month (one page each). */
@@ -281,10 +281,10 @@ class PayrollController extends Controller
         $slips = SalarySlip::with('lines', 'staff')->where('month', $data['month'])->orderBy('staff_name')->get();
 
         if ($slips->isEmpty()) {
-            return back()->withErrors(['slip' => 'There are no slips for that month.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
-        return view('admin.payroll.slip', compact('slips'));
+        return response()->json(compact('slips'));
     }
 
     public function csv(Request $request): StreamedResponse

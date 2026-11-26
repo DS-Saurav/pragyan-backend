@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Services\Media\MediaFiles;
@@ -19,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class MediaFoundationController extends Controller
 {
-    public function index(MediaSchema $schema, MediaUsage $usage): View
+    public function index(MediaSchema $schema, MediaUsage $usage): JsonResponse
     {
         $this->authorizeLibraryAccess();
         $schema->ensureReady();
@@ -43,7 +45,7 @@ class MediaFoundationController extends Controller
             }
         }
 
-        return view('admin.media.index', [
+        return response()->json([
             'assets' => $assets,
             'categories' => MediaLibrary::CATEGORIES,
             'publishedUses' => $publishedUses,
@@ -90,7 +92,7 @@ class MediaFoundationController extends Controller
         ]);
     }
 
-    public function upload(Request $request, MediaLibrary $library): RedirectResponse
+    public function upload(Request $request, MediaLibrary $library): JsonResponse
     {
         $request->validate(['image' => ['required', 'file']]);
         $library->upload($request->user(), $request->file('image'), $this->metadata($request));
@@ -98,56 +100,56 @@ class MediaFoundationController extends Controller
         return $this->libraryRedirect('Image uploaded as a private draft.');
     }
 
-    public function updateMetadata(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function updateMetadata(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->updateMetadata($request->user(), $asset, $this->metadata($request));
 
         return $this->libraryRedirect('Media details updated.');
     }
 
-    public function submit(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function submit(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->submit($request->user(), $asset);
 
         return $this->libraryRedirect('Media submitted for review.');
     }
 
-    public function approve(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function approve(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->approve($request->user(), $asset);
 
         return $this->libraryRedirect('Media review recorded.');
     }
 
-    public function publish(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function publish(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->publish($request->user(), $asset);
 
         return $this->libraryRedirect('Public derivative published.');
     }
 
-    public function draft(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function draft(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->draft($request->user(), $asset);
 
         return $this->libraryRedirect('Media returned to draft.');
     }
 
-    public function archive(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function archive(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->archive($request->user(), $asset);
 
         return $this->libraryRedirect('Media archived.');
     }
 
-    public function restore(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function restore(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $library->restore($request->user(), $asset);
 
         return $this->libraryRedirect('Media restored as a draft.');
     }
 
-    public function consent(Request $request, MediaAsset $asset, MediaLibrary $library): RedirectResponse
+    public function consent(Request $request, MediaAsset $asset, MediaLibrary $library): JsonResponse
     {
         $state = $request->validate([
             'consent_state' => ['required', Rule::in(['not_required', 'confirmed', 'withdrawn'])],
@@ -179,9 +181,9 @@ class MediaFoundationController extends Controller
         ];
     }
 
-    private function libraryRedirect(string $message): RedirectResponse
+    private function libraryRedirect(string $message): JsonResponse
     {
-        return redirect()->route('admin.media.index')->with('success', $message);
+        return response()->json(["message" => $message]);
     }
 
     private function authorizeLibraryAccess(): void

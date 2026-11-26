@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Models\PublicTeamProfile;
@@ -29,11 +31,11 @@ class PublicTeamProfileController extends Controller
         private PublicTeamMarkdown $markdown,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         $this->authorizeAny(['public_team.author', 'public_team.review', 'public_team.publish']);
 
-        return view('admin.public-team.index', [
+        return response()->json([
             'profiles' => PublicTeamProfile::query()
                 ->with(['creator', 'editor', 'publisher', 'revisions', 'publishedRevision', 'scheduledRevision'])
                 ->orderByDesc('updated_at')
@@ -44,7 +46,7 @@ class PublicTeamProfileController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(): JsonResponse
     {
         Gate::authorize('public_team.author');
 
@@ -54,7 +56,7 @@ class PublicTeamProfileController extends Controller
         );
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse
     {
         Gate::authorize('public_team.author');
         $data = $this->validated($request);
@@ -65,11 +67,10 @@ class PublicTeamProfileController extends Controller
             $this->updatePortraitWhenRequested($data, $revision);
         }
 
-        return redirect()->route('admin.public-team.edit', $profile)
-            ->with('success', 'Public Team profile saved as a private draft. Submit it for review when it is ready.');
+        return response()->json(["message" => 'Public Team profile saved as a private draft. Submit it for review when it is ready.']);
     }
 
-    public function edit(PublicTeamProfile $publicTeamProfile): View
+    public function edit(PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         $this->authorizeAny(['public_team.author', 'public_team.review', 'public_team.publish']);
         $publicTeamProfile->load([
@@ -84,26 +85,25 @@ class PublicTeamProfileController extends Controller
         return $this->formView($publicTeamProfile, $this->activeRevision($publicTeamProfile));
     }
 
-    public function update(Request $request, PublicTeamProfile $publicTeamProfile): RedirectResponse
+    public function update(Request $request, PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         Gate::authorize('public_team.author');
         $data = $this->validated($request);
         $revision = $this->publisher->saveDraft($this->actor(), $publicTeamProfile, $this->profileData($data));
         $this->updatePortraitWhenRequested($data, $revision);
 
-        return redirect()->route('admin.public-team.edit', $publicTeamProfile)
-            ->with('success', $publicTeamProfile->publication_state === 'published'
+        return response()->json(["message" => $publicTeamProfile->publication_state === 'published'
                 ? 'A private replacement revision was saved. The current public profile has not changed.'
-                : 'Public Team profile draft saved.');
+                : 'Public Team profile draft saved.']);
     }
 
-    public function preview(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): View
+    public function preview(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): JsonResponse
     {
         $this->authorizeAny(['public_team.author', 'public_team.review', 'public_team.publish']);
         $this->ensureRevisionBelongsToProfile($publicTeamProfile, $revision);
         $revision->load('portrait.asset');
 
-        return view('admin.public-team.preview', [
+        return response()->json([
             'profile' => $publicTeamProfile,
             'revision' => $revision,
             'portrait' => $revision->portrait,
@@ -111,25 +111,25 @@ class PublicTeamProfileController extends Controller
         ]);
     }
 
-    public function submit(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): RedirectResponse
+    public function submit(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): JsonResponse
     {
         Gate::authorize('public_team.author');
         $this->ensureRevisionBelongsToProfile($publicTeamProfile, $revision);
         $this->publisher->submit($this->actor(), $publicTeamProfile, $revision);
 
-        return back()->with('success', 'Public Team profile revision submitted for review.');
+        return response()->json(["message" => 'Public Team profile revision submitted for review.']);
     }
 
-    public function approve(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): RedirectResponse
+    public function approve(PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): JsonResponse
     {
         Gate::authorize('public_team.review');
         $this->ensureRevisionBelongsToProfile($publicTeamProfile, $revision);
         $this->publisher->approve($this->actor(), $publicTeamProfile, $revision);
 
-        return back()->with('success', 'Public Team profile revision approved for publication.');
+        return response()->json(["message" => 'Public Team profile revision approved for publication.']);
     }
 
-    public function publish(Request $request, PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): RedirectResponse
+    public function publish(Request $request, PublicTeamProfile $publicTeamProfile, PublicTeamProfileRevision $revision): JsonResponse
     {
         Gate::authorize('public_team.publish');
         $this->ensureRevisionBelongsToProfile($publicTeamProfile, $revision);
@@ -144,46 +144,46 @@ class PublicTeamProfileController extends Controller
         }
         $this->publisher->publish($this->actor(), $publicTeamProfile, $revision, $scheduledFor);
 
-        return back()->with('success', $scheduledFor === null
+        return response()->json(["message" => $scheduledFor === null
             ? 'Public Team profile published.'
-            : 'Public Team profile scheduled for publication.');
+            : 'Public Team profile scheduled for publication.']);
     }
 
-    public function withdraw(PublicTeamProfile $publicTeamProfile): RedirectResponse
+    public function withdraw(PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         Gate::authorize('public_team.publish');
         $this->publisher->withdraw($this->actor(), $publicTeamProfile);
 
-        return back()->with('success', 'Public Team profile withdrawn from the public website.');
+        return response()->json(["message" => 'Public Team profile withdrawn from the public website.']);
     }
 
-    public function cancelSchedule(PublicTeamProfile $publicTeamProfile): RedirectResponse
+    public function cancelSchedule(PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         Gate::authorize('public_team.publish');
         $this->publisher->cancelSchedule($this->actor(), $publicTeamProfile);
 
-        return back()->with('success', 'Scheduled public Team profile publication cancelled.');
+        return response()->json(["message" => 'Scheduled public Team profile publication cancelled.']);
     }
 
-    public function archive(PublicTeamProfile $publicTeamProfile): RedirectResponse
+    public function archive(PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         Gate::authorize('public_team.publish');
         $this->publisher->archive($this->actor(), $publicTeamProfile);
 
-        return back()->with('success', 'Public Team profile archived. Its editorial history has been retained.');
+        return response()->json(["message" => 'Public Team profile archived. Its editorial history has been retained.']);
     }
 
-    public function restore(PublicTeamProfile $publicTeamProfile): RedirectResponse
+    public function restore(PublicTeamProfile $publicTeamProfile): JsonResponse
     {
         Gate::authorize('public_team.publish');
         $this->publisher->restore($this->actor(), $publicTeamProfile);
 
-        return back()->with('success', 'Public Team profile restored as a private draft.');
+        return response()->json(["message" => 'Public Team profile restored as a private draft.']);
     }
 
-    private function formView(PublicTeamProfile $profile, PublicTeamProfileRevision $revision): View
+    private function formView(PublicTeamProfile $profile, PublicTeamProfileRevision $revision): JsonResponse
     {
-        return view('admin.public-team.form', [
+        return response()->json([
             'profile' => $profile,
             'revision' => $revision,
             'assets' => $this->safeAssets(),

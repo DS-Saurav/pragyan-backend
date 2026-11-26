@@ -3,45 +3,72 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Http\RedirectResponse;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Hash;
 
 class AuthenticatedSessionController extends Controller
 {
-    /**
-     * Display the login view.
-     */
-    public function create(): View
+    public function store(Request $request): JsonResponse
     {
-        return view('auth.login');
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $user = User::where('email', $credentials['email'])->first();
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            return response()->json([
+                'message' => 'These credentials do not match our records.',
+            ], 422);
+        }
+
+        if (($user->status ?? 'active') !== 'active') {
+            return response()->json([
+                'message' => 'Your account is not active. Please contact an administrator.',
+            ], 403);
+        }
+
+        $user->forceFill(['last_login_at' => now()])->save();
+        $token = $user->createToken('angular-admin')->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'user' => $this->formatUser($user),
+        ]);
     }
 
-    /**
-     * Handle an incoming authentication request.
-     */
-    public function store(LoginRequest $request): RedirectResponse
+    public function me(Request $request): JsonResponse
     {
-        $request->authenticate();
-
-        $request->session()->regenerate();
-
-        return redirect()->intended(route('dashboard', absolute: false));
+        return response()->json([
+            'user' => $this->formatUser($request->user()),
+        ]);
     }
 
-    /**
-     * Destroy an authenticated session.
-     */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): JsonResponse
     {
-        Auth::guard('web')->logout();
+        $request->user()?->currentAccessToken()?->delete();
 
-        $request->session()->invalidate();
+        return response()->json(['message' => 'Logged out.']);
+    }
 
-        $request->session()->regenerateToken();
+    private function formatUser(User $user): array
+    {
+        $roles = method_exists($user, 'roleNames') ? $user->roleNames() : [];
+        $roleLabel = $roles
+            ? collect($roles)
+                ->map(fn ($role) => config("permissions.role_labels.{$role}", ucfirst((string) $role)))
+                ->join(', ')
+            : 'Administrator';
 
-        return redirect('/');
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'roleLabel' => $roleLabel,
+            'avatarUrl' => method_exists($user, 'avatarUrl') ? $user->avatarUrl() : null,
+        ];
     }
 }

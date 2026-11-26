@@ -35,7 +35,7 @@ class ActivityController extends Controller
 
         $teachers = User::select('id', 'name')->get();
 
-        return view('admin.activities.index', compact(
+        return response()->json(compact(
             'entries', 'totalCount', 'scheduledCount', 'completedCount', 'teachers'
         ));
     }
@@ -52,8 +52,7 @@ class ActivityController extends Controller
 
         SchoolActivity::create($validated);
 
-        return redirect()->route('admin.activities.index')
-            ->with('success', 'Activity added successfully.');
+        return response()->json(["message" => 'Activity added successfully.']);
     }
 
     public function edit(SchoolActivity $activity)
@@ -78,15 +77,13 @@ class ActivityController extends Controller
 
         $activity->update($validated);
 
-        return redirect()->route('admin.activities.index')
-            ->with('success', 'Activity updated successfully.');
+        return response()->json(["message" => 'Activity updated successfully.']);
     }
 
     public function destroy(SchoolActivity $activity)
     {
         $activity->delete();
 
-        return redirect()->route('admin.activities.index')
-            ->with('success', 'Activity deleted successfully.');
+        return response()->json(["message" => 'Activity deleted successfully.']);
     }
 }

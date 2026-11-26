@@ -90,7 +90,7 @@ class DisciplineController extends Controller
 
         $classes = SchoolClass::orderBy('name')->get();
 
-        return view('admin.discipline.index', [
+        return response()->json([
             'incidents' => $incidents,
             'counts' => $counts,
             'stats' => $stats,
@@ -109,7 +109,7 @@ class DisciplineController extends Controller
         $data = $this->normalize($request->validate($this->rules($request)));
         Incident::create($data);
 
-        return redirect()->back()->with('success', 'Incident reported successfully.');
+        return response()->json(["message" => 'Incident reported successfully.']);
     }
 
     public function update(Request $request, Incident $incident)
@@ -117,7 +117,7 @@ class DisciplineController extends Controller
         $data = $this->normalize($request->validate($this->rules($request)), $incident);
         $incident->update($data);
 
-        return redirect()->back()->with('success', 'Incident updated successfully.');
+        return response()->json(["message" => 'Incident updated successfully.']);
     }
 
     /** Close a case. A resolution note is required. */
@@ -127,7 +127,7 @@ class DisciplineController extends Controller
 
         $incident->update($data + ['status' => 'closed', 'closed_at' => now()]);
 
-        return redirect()->back()->with('success', 'Case closed.');
+        return response()->json(["message" => 'Case closed.']);
     }
 
     public function notify(Incident $incident)
@@ -137,14 +137,14 @@ class DisciplineController extends Controller
             'parent_notified_on' => $incident->parent_notified_on ?? now()->toDateString(),
         ]);
 
-        return redirect()->back()->with('success', 'Marked as parent notified.');
+        return response()->json(["message" => 'Marked as parent notified.']);
     }
 
     public function destroy(Incident $incident)
     {
         $incident->delete();
 
-        return redirect()->back()->with('success', 'Incident deleted.');
+        return response()->json(["message" => 'Incident deleted.']);
     }
 
     /** Printable letter to the parent / guardian. */
@@ -153,7 +153,7 @@ class DisciplineController extends Controller
         $incident->load('student', 'reporter');
         $class = SchoolClass::find($incident->student->school_class_id ?? 0);
 
-        return view('admin.discipline.notice', compact('incident', 'class'));
+        return response()->json(compact('incident', 'class'));
     }
 
     public function csv(Request $request): StreamedResponse

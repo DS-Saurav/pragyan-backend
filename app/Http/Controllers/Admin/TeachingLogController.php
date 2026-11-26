@@ -57,7 +57,7 @@ class TeachingLogController extends Controller
             ->limit(100)
             ->get();
 
-        return view('admin.teaching-logs.index', [
+        return response()->json([
             'logs' => $logs,
             'perPage' => $perPage,
             'lessonPlans' => $lessonPlans,
@@ -73,7 +73,7 @@ class TeachingLogController extends Controller
 
         $this->syncLessonPlan($log);
 
-        return redirect()->back()->with('success', 'Log entry added successfully.');
+        return response()->json(["message" => 'Log entry added successfully.']);
     }
 
     public function update(Request $request, TeachingLog $teachingLog)
@@ -82,14 +82,14 @@ class TeachingLogController extends Controller
 
         $this->syncLessonPlan($teachingLog);
 
-        return redirect()->back()->with('success', 'Log entry updated successfully.');
+        return response()->json(["message" => 'Log entry updated successfully.']);
     }
 
     public function destroy(TeachingLog $teachingLog)
     {
         $teachingLog->delete();
 
-        return redirect()->back()->with('success', 'Log entry deleted.');
+        return response()->json(["message" => 'Log entry deleted.']);
     }
 
     public function csv(Request $request): StreamedResponse

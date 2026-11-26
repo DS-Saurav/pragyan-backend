@@ -96,7 +96,7 @@ class HelpdeskController extends Controller
             'resolved_month' => $this->visible()->where('resolved_at', '>=', now()->startOfMonth())->count(),
         ];
 
-        return view('admin.helpdesk.index', [
+        return response()->json([
             'tickets' => $tickets,
             'counts' => $counts,
             'stats' => $stats,
@@ -131,8 +131,7 @@ class HelpdeskController extends Controller
             ]);
         });
 
-        return redirect()->route('admin.helpdesk.show', $ticket)
-            ->with('success', "Ticket {$ticket->ticket_no} raised. We'll get back to you soon.");
+        return response()->json(["message" => "Ticket {$ticket->ticket_no} raised. We'll get back to you soon."]);
     }
 
     public function show(HelpdeskTicket $ticket)
@@ -145,7 +144,7 @@ class HelpdeskController extends Controller
             ->when(! $this->manager(), fn ($q) => $q->where('is_internal', false))
             ->get();
 
-        return view('admin.helpdesk.show', [
+        return response()->json([
             'ticket' => $ticket,
             'replies' => $replies,
             'staff' => $this->manager() ? $this->staff() : collect(),
@@ -182,7 +181,7 @@ class HelpdeskController extends Controller
         }
 
         if (! $notes) {
-            return back()->with('success', 'Nothing changed.');
+            return response()->json(["message" => 'Nothing changed.']);
         }
 
         DB::transaction(function () use ($ticket, $data, $assigned, $notes) {
@@ -200,7 +199,7 @@ class HelpdeskController extends Controller
             }
         });
 
-        return back()->with('success', 'Ticket updated.');
+        return response()->json(["message" => 'Ticket updated.']);
     }
 
     public function reply(Request $request, HelpdeskTicket $ticket)
@@ -208,7 +207,7 @@ class HelpdeskController extends Controller
         abort_unless($this->manager() || $ticket->raised_by === auth()->id(), 403);
 
         if ($ticket->status === 'closed') {
-            return back()->withErrors(['body' => 'This ticket is closed. Raise a new ticket if the problem continues.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $data = $request->validate([
@@ -243,14 +242,14 @@ class HelpdeskController extends Controller
             $ticket->update($update);
         });
 
-        return back()->with('success', $internal ? 'Internal note added.' : 'Reply sent.');
+        return response()->json(["message" => $internal ? 'Internal note added.' : 'Reply sent.']);
     }
 
     public function destroy(HelpdeskTicket $ticket)
     {
         $ticket->delete(); // soft delete: the ticket number is never reused
 
-        return redirect()->route('admin.helpdesk.index')->with('success', "Ticket {$ticket->ticket_no} deleted.");
+        return response()->json(["message" => "Ticket {$ticket->ticket_no} deleted."]);
     }
 
     public function csv(Request $request): StreamedResponse

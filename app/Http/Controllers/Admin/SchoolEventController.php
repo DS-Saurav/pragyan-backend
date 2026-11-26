@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\SchoolEvent;
 use App\Models\User;
@@ -12,7 +14,7 @@ use Illuminate\Support\Facades\Gate;
 
 class SchoolEventController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): JsonResponse
     {
         $this->authorizeCalendarViewing();
 
@@ -34,12 +36,12 @@ class SchoolEventController extends Controller
         $eventCount = SchoolEvent::where('type', 'event')->count();
         $examCount = SchoolEvent::where('type', 'exam')->count();
 
-        return view('admin.calendar.index', compact(
+        return response()->json(compact(
             'events', 'tab', 'totalCount', 'holidayCount', 'eventCount', 'examCount'
         ));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse
     {
         $this->authorizeCalendarManagement();
         $this->authorizePublicCalendarMutation($request->boolean('is_public'));
@@ -58,10 +60,10 @@ class SchoolEventController extends Controller
             'is_public' => $request->boolean('is_public'),
         ]);
 
-        return back()->with('success', 'Calendar event added successfully!');
+        return response()->json(["message" => 'Calendar event added successfully!']);
     }
 
-    public function update(Request $request, SchoolEvent $schoolEvent): RedirectResponse
+    public function update(Request $request, SchoolEvent $schoolEvent): JsonResponse
     {
         $this->authorizeCalendarManagement();
         $this->authorizePublicCalendarMutation($schoolEvent->is_public || $request->boolean('is_public'));
@@ -78,17 +80,17 @@ class SchoolEventController extends Controller
             'is_public' => $request->boolean('is_public'),
         ]);
 
-        return back()->with('success', 'Calendar event updated successfully!');
+        return response()->json(["message" => 'Calendar event updated successfully!']);
     }
 
-    public function destroy(SchoolEvent $schoolEvent): RedirectResponse
+    public function destroy(SchoolEvent $schoolEvent): JsonResponse
     {
         $this->authorizeCalendarManagement();
         $this->authorizePublicCalendarMutation($schoolEvent->is_public);
 
         $schoolEvent->delete();
 
-        return back()->with('success', 'Event deleted successfully!');
+        return response()->json(["message" => 'Event deleted successfully!']);
     }
 
     private function authorizeCalendarViewing(): void

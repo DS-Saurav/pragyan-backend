@@ -3,291 +3,179 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\MediaAsset;
 use App\Models\NewsStory;
 use App\Models\NewsStoryRevision;
 use App\Models\Setting;
-use App\Models\User;
-use App\Services\Media\MediaLibrary;
-use App\Services\News\NewsMarkdown;
-use App\Services\News\NewsPublisher;
-use Carbon\CarbonImmutable;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class NewsStoryController extends Controller
 {
-    public function __construct(
-        private NewsPublisher $newsPublisher,
-        private MediaLibrary $mediaLibrary,
-        private NewsMarkdown $newsMarkdown,
-    ) {}
-
-    public function index(): View
+    public function index(): JsonResponse
     {
-        $this->authorizeAny(['news.author', 'news.review', 'news.publish']);
+        $featuredId = (int) Setting::get('featured_news_story_id', 0);
+        $stories = NewsStory::query()
+            ->with(['publishedRevision', 'revisions'])
+            ->latest('updated_at')
+            ->get()
+            ->map(fn (NewsStory $s) => $this->formatStory($s, $featuredId));
 
-        return view('admin.news.index', [
-            'stories' => NewsStory::query()
-                ->with(['creator', 'editor', 'publisher', 'revisions', 'publishedRevision', 'scheduledRevision'])
-                ->orderByDesc('updated_at')
-                ->paginate(30),
-            'featuredStoryId' => (int) Setting::get('website_featured_news_story_id'),
+        return response()->json(['stories' => $stories]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $this->validateStory($request);
+        $userId = $request->user()?->id;
+
+        $story = NewsStory::create([
+            'slug' => $validated['slug'] ?: null,
+            'publication_state' => 'draft',
+            'created_by' => $userId,
+            'updated_by' => $userId,
+        ]);
+
+        NewsStoryRevision::create([
+            'news_story_id' => $story->id,
+            'revision_number' => 1,
+            'workflow_state' => 'draft',
+            'title' => $validated['title'],
+            'slug' => $validated['slug'] ?: null,
+            'category' => $validated['category'] ?: 'Learning',
+            'summary' => $validated['summary'],
+            'body_markdown' => $validated['body_markdown'],
+            'created_by' => $userId,
+        ]);
+
+        $featuredId = (int) Setting::get('featured_news_story_id', 0);
+
+        return response()->json([
+            'story' => $this->formatStory($story->fresh(['publishedRevision', 'revisions']), $featuredId),
+        ], 201);
+    }
+
+    public function update(Request $request, NewsStory $newsStory): JsonResponse
+    {
+        $validated = $this->validateStory($request);
+        $userId = $request->user()?->id;
+        $nextRev = ($newsStory->revisions()->max('revision_number') ?? 0) + 1;
+
+        $newsStory->update([
+            'slug' => $validated['slug'] ?: $newsStory->slug,
+            'updated_by' => $userId,
+        ]);
+
+        NewsStoryRevision::create([
+            'news_story_id' => $newsStory->id,
+            'revision_number' => $nextRev,
+            'workflow_state' => 'draft',
+            'title' => $validated['title'],
+            'slug' => $validated['slug'] ?: null,
+            'category' => $validated['category'] ?: 'Learning',
+            'summary' => $validated['summary'],
+            'body_markdown' => $validated['body_markdown'],
+            'created_by' => $userId,
+        ]);
+
+        $featuredId = (int) Setting::get('featured_news_story_id', 0);
+
+        return response()->json([
+            'story' => $this->formatStory($newsStory->fresh(['publishedRevision', 'revisions']), $featuredId),
         ]);
     }
 
-    public function create(): View
+    public function transition(Request $request, NewsStory $newsStory): JsonResponse
     {
-        Gate::authorize('news.author');
+        $validated = $request->validate([
+            'action' => 'required|in:submit,approve,publish,withdraw,archive,restore',
+        ]);
 
-        return $this->formView(new NewsStory([
-            'publication_state' => 'draft',
-        ]), new NewsStoryRevision([
-            'workflow_state' => 'draft',
-        ]));
-    }
+        $latest = $newsStory->revisions()->sortByDesc('revision_number')->first();
+        $userId = $request->user()?->id;
 
-    public function store(Request $request): RedirectResponse
-    {
-        Gate::authorize('news.author');
-        $data = $this->validated($request);
-        $story = $this->newsPublisher->createDraft($this->actor(), $this->storyData($data));
-        $revision = $story->revisions->last();
-
-        if ($revision instanceof NewsStoryRevision) {
-            $this->replaceCoverWhenSelected($data, $revision);
+        switch ($validated['action']) {
+            case 'submit':
+                $newsStory->update(['publication_state' => 'review', 'updated_by' => $userId]);
+                $latest?->update(['workflow_state' => 'review', 'submitted_at' => now()]);
+                break;
+            case 'approve':
+                $latest?->update(['workflow_state' => 'approved', 'reviewed_at' => now(), 'reviewed_by' => $userId]);
+                break;
+            case 'publish':
+                $slug = $newsStory->slug ?: Str::slug($latest?->title ?? 'story-'.$newsStory->id);
+                $latest?->update(['workflow_state' => 'published', 'published_at' => now()]);
+                $newsStory->update([
+                    'publication_state' => 'published',
+                    'slug' => $slug,
+                    'published_revision_id' => $latest?->id,
+                    'published_at' => now(),
+                    'published_by' => $userId,
+                ]);
+                break;
+            case 'withdraw':
+                $newsStory->update(['publication_state' => 'withdrawn', 'withdrawn_at' => now()]);
+                break;
+            case 'archive':
+                $newsStory->update(['publication_state' => 'archived', 'archived_at' => now()]);
+                break;
+            case 'restore':
+                $newsStory->update(['publication_state' => 'draft']);
+                $latest?->update(['workflow_state' => 'draft']);
+                break;
         }
 
-        return redirect()->route('admin.news.edit', $story)
-            ->with('success', 'News story saved as a private draft. Submit it for review when the content and cover are ready.');
-    }
+        $featuredId = (int) Setting::get('featured_news_story_id', 0);
 
-    public function edit(NewsStory $newsStory): View
-    {
-        $this->authorizeAny(['news.author', 'news.review', 'news.publish']);
-        $newsStory->load([
-            'revisions.cover.asset',
-            'publishedRevision.cover.asset',
-            'scheduledRevision.cover.asset',
-            'creator',
-            'editor',
-            'publisher',
-        ]);
-
-        return $this->formView($newsStory, $this->activeRevision($newsStory));
-    }
-
-    public function update(Request $request, NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.author');
-        $data = $this->validated($request);
-        $revision = $this->newsPublisher->saveDraft($this->actor(), $newsStory, $this->storyData($data));
-        $this->replaceCoverWhenSelected($data, $revision);
-
-        return redirect()->route('admin.news.edit', $newsStory)
-            ->with('success', $newsStory->publication_state === 'published'
-                ? 'A private revision was saved. The currently published story has not changed.'
-                : 'News draft saved.');
-    }
-
-    public function preview(NewsStory $newsStory, NewsStoryRevision $revision): View
-    {
-        $this->authorizeAny(['news.author', 'news.review', 'news.publish']);
-        $this->ensureRevisionBelongsToStory($newsStory, $revision);
-        $revision->load('cover.asset');
-
-        return view('admin.news.preview', [
-            'story' => $newsStory,
-            'revision' => $revision,
-            'cover' => $revision->cover,
-            'bodyHtml' => $this->newsMarkdown->toHtml((string) $revision->body_markdown),
+        return response()->json([
+            'story' => $this->formatStory($newsStory->fresh(['publishedRevision', 'revisions']), $featuredId),
         ]);
     }
 
-    public function submit(NewsStory $newsStory, NewsStoryRevision $revision): RedirectResponse
+    public function feature(NewsStory $newsStory): JsonResponse
     {
-        Gate::authorize('news.author');
-        $this->ensureRevisionBelongsToStory($newsStory, $revision);
-        $this->newsPublisher->submit($this->actor(), $newsStory, $revision);
+        Setting::set('featured_news_story_id', (string) $newsStory->id);
 
-        return back()->with('success', 'News revision submitted for review.');
+        return response()->json(['featuredStoryId' => $newsStory->id]);
     }
 
-    public function approve(NewsStory $newsStory, NewsStoryRevision $revision): RedirectResponse
+    public function unfeature(): JsonResponse
     {
-        Gate::authorize('news.review');
-        $this->ensureRevisionBelongsToStory($newsStory, $revision);
-        $this->newsPublisher->approve($this->actor(), $newsStory, $revision);
+        Setting::set('featured_news_story_id', '');
 
-        return back()->with('success', 'News revision approved for publication.');
+        return response()->json(['featuredStoryId' => null]);
     }
 
-    public function publish(Request $request, NewsStory $newsStory, NewsStoryRevision $revision): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->ensureRevisionBelongsToStory($newsStory, $revision);
-        $data = $request->validate([
-            'scheduled_for' => ['nullable', 'date', 'after:now'],
-        ]);
-        $scheduledFor = empty($data['scheduled_for'])
-            ? null
-            : CarbonImmutable::parse($data['scheduled_for'], 'Asia/Kathmandu');
-        $this->newsPublisher->publish($this->actor(), $newsStory, $revision, $scheduledFor);
-
-        return back()->with('success', $scheduledFor === null
-            ? 'News story published.'
-            : 'News story scheduled for publication.');
-    }
-
-    public function withdraw(NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->newsPublisher->withdraw($this->actor(), $newsStory);
-
-        return back()->with('success', 'News story withdrawn from the public website.');
-    }
-
-    public function archive(NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->newsPublisher->archive($this->actor(), $newsStory);
-
-        return back()->with('success', 'News story archived. Its editorial history has been retained.');
-    }
-
-    public function restore(NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->newsPublisher->restore($this->actor(), $newsStory);
-
-        return back()->with('success', 'News story restored as a private draft.');
-    }
-
-    public function feature(NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->newsPublisher->setFeatured($this->actor(), $newsStory);
-
-        return back()->with('success', 'This is now the optional featured story on the homepage.');
-    }
-
-    public function unfeature(NewsStory $newsStory): RedirectResponse
-    {
-        Gate::authorize('news.publish');
-        $this->newsPublisher->setFeatured($this->actor(), null);
-
-        return back()->with('success', 'The homepage no longer has a featured story.');
-    }
-
-    private function formView(NewsStory $story, NewsStoryRevision $revision): View
-    {
-        return view('admin.news.form', [
-            'story' => $story,
-            'revision' => $revision,
-            'assets' => MediaAsset::query()
-                ->where('status', 'published')
-                ->whereNull('archived_at')
-                ->whereNull('consent_withdrawn_at')
-                ->whereIn('consent_state', ['not_required', 'confirmed'])
-                ->where(function ($query): void {
-                    $query->whereNotNull('default_alt_text')->where('default_alt_text', '!=', '')
-                        ->orWhere('is_decorative', true);
-                })
-                ->orderByDesc('published_at')
-                ->get(),
-            'states' => NewsStory::PUBLICATION_STATES,
-            'revisionStates' => NewsStoryRevision::WORKFLOW_STATES,
-        ]);
-    }
-
-    /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validateStory(Request $request): array
     {
         return $request->validate([
-            'title' => ['required', 'string', 'max:180'],
-            'slug' => ['nullable', 'string', 'max:180', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
-            'summary' => ['required', 'string', 'max:500'],
-            'body_markdown' => ['required', 'string', 'max:30000'],
-            'category' => ['nullable', 'string', 'max:60'],
-            'public_attribution' => ['nullable', 'string', 'max:255'],
-            'cover_asset_id' => ['nullable', 'integer', Rule::exists('media_assets', 'id')],
-            'cover_caption' => ['nullable', 'string', 'max:10000'],
-            'cover_alt_text' => ['nullable', 'string', 'max:255'],
-            'cover_focal_x' => ['nullable', 'numeric', 'between:0,100'],
-            'cover_focal_y' => ['nullable', 'numeric', 'between:0,100'],
+            'title' => 'required|string|max:180',
+            'slug' => 'nullable|string|max:180',
+            'category' => 'nullable|string|max:60',
+            'summary' => 'required|string|max:600',
+            'body_markdown' => 'required|string|max:30000',
         ]);
     }
 
-    /** @param array<string, mixed> $data
-     * @return array<string, mixed>
-     */
-    private function storyData(array $data): array
+    private function formatStory(NewsStory $s, int $featuredId): array
     {
+        $live = $s->publishedRevision;
+        $latest = $s->revisions->sortByDesc('revision_number')->first();
+        $rev = $live ?? $latest;
+
         return [
-            'title' => $data['title'],
-            'slug' => $data['slug'] ?? null,
-            'summary' => $data['summary'],
-            'body_markdown' => $data['body_markdown'],
-            'category' => $data['category'] ?? null,
-            'public_attribution' => $data['public_attribution'] ?? null,
+            'id' => $s->id,
+            'title' => $rev?->title ?? 'Untitled draft',
+            'slug' => $s->slug,
+            'category' => $rev?->category ?? 'Learning',
+            'summary' => $rev?->summary ?? '',
+            'bodyMarkdown' => $rev?->body_markdown ?? '',
+            'publicationState' => $s->publication_state ?? 'draft',
+            'revisionNumber' => $latest?->revision_number ?? 1,
+            'workflowState' => $latest?->workflow_state ?? 'draft',
+            'isFeatured' => $featuredId > 0 && $featuredId === $s->id,
+            'publishedAt' => optional($s->published_at)->toIso8601String(),
+            'updatedAt' => optional($s->updated_at)->toIso8601String() ?? now()->toIso8601String(),
         ];
-    }
-
-    /** @param array<string, mixed> $data */
-    private function replaceCoverWhenSelected(array $data, NewsStoryRevision $revision): void
-    {
-        if (empty($data['cover_asset_id'])) {
-            return;
-        }
-
-        $asset = MediaAsset::findOrFail($data['cover_asset_id']);
-        $this->mediaLibrary->replaceNewsStoryRevisionCover($this->actor(), $revision, $asset, [
-            'caption' => $data['cover_caption'] ?? null,
-            'alt_text' => $data['cover_alt_text'] ?? null,
-            'focal_x' => $data['cover_focal_x'] ?? 50,
-            'focal_y' => $data['cover_focal_y'] ?? 50,
-        ]);
-    }
-
-    private function activeRevision(NewsStory $story): NewsStoryRevision
-    {
-        $active = $story->revisions
-            ->filter(fn (NewsStoryRevision $revision): bool => in_array($revision->workflow_state, ['draft', 'review', 'approved', 'scheduled'], true))
-            ->sortByDesc('revision_number')
-            ->first();
-
-        if ($active instanceof NewsStoryRevision) {
-            return $active;
-        }
-
-        return $story->publishedRevision ?? new NewsStoryRevision(['workflow_state' => 'draft']);
-    }
-
-    private function ensureRevisionBelongsToStory(NewsStory $story, NewsStoryRevision $revision): void
-    {
-        abort_unless($revision->news_story_id === $story->id, 404);
-    }
-
-    /** @param array<int, string> $abilities */
-    private function authorizeAny(array $abilities): void
-    {
-        foreach ($abilities as $ability) {
-            if (Gate::allows($ability)) {
-                return;
-            }
-        }
-
-        abort(403);
-    }
-
-    private function actor(): User
-    {
-        $user = auth()->user();
-        abort_unless($user instanceof User, 403);
-
-        return $user;
     }
 }

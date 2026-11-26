@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\GalleryAlbum;
 use App\Models\NewsStory;
 use App\Models\Notice;
@@ -43,7 +45,7 @@ final class PublicNepaliController extends Controller
         private PublicPhotoSlots $publicPhotoSlots,
     ) {}
 
-    public function home(): View
+    public function home(): JsonResponse
     {
         $revision = $this->translations->siteRevision('homepage');
 
@@ -52,17 +54,17 @@ final class PublicNepaliController extends Controller
             : $this->content((array) $revision->payload, __('public.home'), route('home'), null, false, $this->publicPhotoSlots->resolve('home_hero', 'ne'));
     }
 
-    public function about(): View
+    public function about(): JsonResponse
     {
         return $this->page(PublicPage::TYPE_ABOUT, route('public.about'));
     }
 
-    public function academics(): View
+    public function academics(): JsonResponse
     {
         return $this->page(PublicPage::TYPE_ACADEMICS, route('public.academics'));
     }
 
-    public function admissions(): View
+    public function admissions(): JsonResponse
     {
         $source = $this->admissions->current();
         $revision = $source === null ? null : $this->translations->contentRevision(PublicTranslationSource::ADMISSION_CYCLE, $source);
@@ -72,7 +74,7 @@ final class PublicNepaliController extends Controller
         }
 
         if ($source->public_status === 'closed') {
-            return view('frontend.localized.admissions-closed', [
+            return response()->json([
                 'payload' => (array) $revision->payload,
                 'identity' => SiteIdentity::publicProfile(),
                 'source' => $source,
@@ -84,7 +86,7 @@ final class PublicNepaliController extends Controller
         return $this->content((array) $revision->payload, $this->title((array) $revision->payload, __('public.admissions')), route('public.admissions'), $revision);
     }
 
-    public function contact(): View
+    public function contact(): JsonResponse
     {
         $revision = $this->translations->siteRevision('identity');
 
@@ -98,7 +100,7 @@ final class PublicNepaliController extends Controller
             ]);
     }
 
-    public function team(): View
+    public function team(): JsonResponse
     {
         $sources = $this->team->displayableQuery()->with('publishedRevision.portrait.asset')->orderBy('id')->get();
 
@@ -109,7 +111,7 @@ final class PublicNepaliController extends Controller
         );
     }
 
-    public function calendar(): View
+    public function calendar(): JsonResponse
     {
         $sources = SchoolEvent::query()->where('is_public', true)->orderBy('date')->orderBy('id')->get();
 
@@ -120,21 +122,21 @@ final class PublicNepaliController extends Controller
         );
     }
 
-    public function news(): View
+    public function news(): JsonResponse
     {
         return $this->newsListing(false);
     }
 
-    public function newsArchive(): View
+    public function newsArchive(): JsonResponse
     {
         return $this->newsListing(true);
     }
 
-    public function newsShow(string $slug): View|RedirectResponse
+    public function newsShow(string $slug): JsonResponse
     {
         $result = $this->news->findDisplayableSlug($slug);
         if ($result['redirect'] instanceof NewsStory) {
-            return redirect()->route('public.ne.news.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
         abort_unless($result['story'] instanceof NewsStory, 404);
         $source = $result['story'];
@@ -145,21 +147,21 @@ final class PublicNepaliController extends Controller
             : $this->content((array) $revision->payload, $this->title((array) $revision->payload, __('public.news')), route('public.news.show', ['slug' => $source->slug]), $revision);
     }
 
-    public function gallery(): View
+    public function gallery(): JsonResponse
     {
         return $this->galleryListing(false);
     }
 
-    public function galleryArchive(): View
+    public function galleryArchive(): JsonResponse
     {
         return $this->galleryListing(true);
     }
 
-    public function galleryShow(string $slug): View|RedirectResponse
+    public function galleryShow(string $slug): JsonResponse
     {
         $result = $this->gallery->findDisplayableSlug($slug);
         if ($result['redirect'] instanceof GalleryAlbum) {
-            return redirect()->route('public.ne.gallery.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
         abort_unless($result['album'] instanceof GalleryAlbum, 404);
         $source = $result['album'];
@@ -170,21 +172,21 @@ final class PublicNepaliController extends Controller
             : $this->content((array) $revision->payload, $this->title((array) $revision->payload, __('public.gallery')), route('public.gallery.show', ['slug' => $source->slug]), $revision);
     }
 
-    public function notices(): View
+    public function notices(): JsonResponse
     {
         return $this->noticeListing(false);
     }
 
-    public function noticesArchive(): View
+    public function noticesArchive(): JsonResponse
     {
         return $this->noticeListing(true);
     }
 
-    public function noticeShow(string $slug): View|RedirectResponse
+    public function noticeShow(string $slug): JsonResponse
     {
         $result = $this->notices->findDisplayableSlug($slug);
         if ($result['redirect'] instanceof Notice) {
-            return redirect()->route('public.ne.notices.show', ['slug' => $result['redirect']->slug], 301);
+            return response()->json(["ok" => true]);
         }
         abort_unless($result['notice'] instanceof Notice, 404);
         $source = $result['notice'];
@@ -195,7 +197,7 @@ final class PublicNepaliController extends Controller
             : $this->content((array) $revision->payload, $this->title((array) $revision->payload, __('public.notices')), route('public.notices.show', ['slug' => $source->slug]), $revision);
     }
 
-    private function page(string $type, string $englishUrl): View
+    private function page(string $type, string $englishUrl): JsonResponse
     {
         $source = $this->pages->page($type);
         $revision = $source === null ? null : $this->translations->contentRevision(PublicTranslationSource::PUBLIC_PAGE, $source);
@@ -212,21 +214,21 @@ final class PublicNepaliController extends Controller
             );
     }
 
-    private function newsListing(bool $archive): View
+    private function newsListing(bool $archive): JsonResponse
     {
         $sources = $this->news->displayableQuery()->with('publishedRevision.cover.asset')->orderByDesc('published_at')->orderByDesc('id')->get();
 
         return $this->listing($this->translations->translated($sources, PublicTranslationSource::NEWS_STORY), $archive ? __('public.news_archive') : __('public.news'), $archive ? route('public.news.archive') : route('public.news'), $archive);
     }
 
-    private function galleryListing(bool $archive): View
+    private function galleryListing(bool $archive): JsonResponse
     {
         $sources = $this->gallery->displayableQuery()->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])->orderByDesc('published_at')->orderByDesc('id')->get();
 
         return $this->listing($this->translations->translated($sources, PublicTranslationSource::GALLERY_ALBUM), $archive ? __('public.gallery_archive') : __('public.gallery'), $archive ? route('public.gallery.archive') : route('public.gallery'), $archive);
     }
 
-    private function noticeListing(bool $archive): View
+    private function noticeListing(bool $archive): JsonResponse
     {
         $sources = $this->notices->displayableQuery()->with('publishedRevision')->orderByDesc('date')->orderByDesc('published_at')->orderByDesc('id')->get();
 
@@ -234,7 +236,7 @@ final class PublicNepaliController extends Controller
     }
 
     /** @param Collection<int, array{source: Model, revision: PublicContentTranslationRevision}> $translated */
-    private function listing(Collection $translated, string $title, string $englishUrl, bool $archive = false): View
+    private function listing(Collection $translated, string $title, string $englishUrl, bool $archive = false): JsonResponse
     {
         $items = $translated->map(function (array $entry): array {
             $payload = (array) $entry['revision']->payload;
@@ -250,7 +252,7 @@ final class PublicNepaliController extends Controller
             return $this->unavailable($englishUrl);
         }
 
-        return view('frontend.localized.listing', [
+        return response()->json([
             'title' => $title,
             'items' => $items,
             'englishUrl' => $englishUrl,
@@ -261,9 +263,9 @@ final class PublicNepaliController extends Controller
     }
 
     /** @param array<string, mixed> $payload */
-    private function content(array $payload, string $title, string $englishUrl, ?PublicContentTranslationRevision $revision = null, bool $photoHero = false, ?array $slotHeroPhoto = null): View
+    private function content(array $payload, string $title, string $englishUrl, ?PublicContentTranslationRevision $revision = null, bool $photoHero = false, ?array $slotHeroPhoto = null): JsonResponse
     {
-        return view('frontend.localized.content', [
+        return response()->json([
             'title' => $title,
             'payload' => $payload,
             'englishUrl' => $englishUrl,
@@ -276,9 +278,9 @@ final class PublicNepaliController extends Controller
         ]);
     }
 
-    private function unavailable(string $englishUrl): View
+    private function unavailable(string $englishUrl): JsonResponse
     {
-        return view('frontend.localized.unavailable', [
+        return response()->json([
             'englishUrl' => $englishUrl,
             'localizedAvailable' => false,
             'metaDescription' => __('public.unavailable.heading'),

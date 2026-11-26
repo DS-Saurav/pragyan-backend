@@ -40,7 +40,7 @@ class MarksEntryController extends Controller
             $marks = ExamMark::where('exam_subject_id', $current->id)->get()->keyBy('student_id');
         }
 
-        return view('admin.marks.index', compact('exams', 'exam', 'classes', 'class', 'examSubjects', 'current', 'students', 'marks'));
+        return response()->json(compact('exams', 'exam', 'classes', 'class', 'examSubjects', 'current', 'students', 'marks'));
     }
 
     public function save(Request $request, ExamSubject $examSubject)
@@ -53,10 +53,10 @@ class MarksEntryController extends Controller
         }
 
         if ($examSubject->exam->status === 'published') {
-            return back()->withErrors(['marks' => 'Results are published. Unpublish the exam to change marks.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
         if ($examSubject->marks_status === 'locked') {
-            return back()->withErrors(['marks' => 'These marks are locked. Unlock them first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $students = ResultService::students($examSubject->school_class_id);
@@ -107,7 +107,7 @@ class MarksEntryController extends Controller
             $problems[] = "{$missing} student(s) still have missing marks. Enter marks or tick Absent before submitting.";
         }
         if ($problems) {
-            return back()->withErrors($problems)->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         DB::transaction(function () use ($payload, $examSubject, $action) {
@@ -129,22 +129,18 @@ class MarksEntryController extends Controller
 
         $message = ['draft' => 'Draft saved.', 'submit' => 'Marks submitted for admin publishing.', 'lock' => 'Marks locked.'][$action];
 
-        return redirect()->route('admin.marks.index', [
-            'exam_id' => $examSubject->exam_id,
-            'class_id' => $examSubject->school_class_id,
-            'exam_subject_id' => $examSubject->id,
-        ])->with('success', $message);
+        return response()->json(["message" => $message]);
     }
 
     public function unlock(ExamSubject $examSubject)
     {
         if ($examSubject->exam->status === 'published') {
-            return back()->withErrors(['marks' => 'Unpublish the exam first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $examSubject->update(['marks_status' => 'draft']);
 
-        return back()->with('success', 'Marks unlocked. They are back in draft.');
+        return response()->json(["message" => 'Marks unlocked. They are back in draft.']);
     }
 
     /**
@@ -177,7 +173,7 @@ class MarksEntryController extends Controller
                 ->map(fn ($rows) => $rows->pluck('rating', 'indicator_key'));
         }
 
-        return view('admin.marks.assessments', compact(
+        return response()->json(compact(
             'exams', 'exam', 'classes', 'class', 'students', 'indicators', 'ratings',
         ));
     }
@@ -208,12 +204,12 @@ class MarksEntryController extends Controller
         ]);
 
         if ($exam->status === 'published') {
-            return back()->withErrors(['assessments' => 'Results are published. Unpublish the exam to change assessments.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $indicators = MarksheetLayout::load()->assessmentRows;
         if ($indicators === []) {
-            return back()->withErrors(['assessments' => 'No assessment indicators are configured yet. An administrator must add them in the marksheet layout editor first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
         $indicatorKeys = array_column($indicators, 'key');
         $scaleKeys = array_keys(config('school.assessments.scale', []));
@@ -259,7 +255,7 @@ class MarksEntryController extends Controller
         }
 
         if ($problems) {
-            return back()->withErrors($problems)->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         DB::transaction(function () use ($payload, $exam) {
@@ -282,9 +278,6 @@ class MarksEntryController extends Controller
             }
         });
 
-        return redirect()->route('admin.marks.assessments', [
-            'exam_id' => $exam->id,
-            'class_id' => $validated['class_id'],
-        ])->with('success', "Assessments for {$exam->name} ({$exam->academic_year}) saved successfully!");
+        return response()->json(["message" => "Assessments for {$exam->name} ({$exam->academic_year}) saved successfully!"]);
     }
 }

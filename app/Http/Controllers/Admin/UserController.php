@@ -84,7 +84,7 @@ class UserController extends Controller
         $freeStaffJs = StaffMember::whereNull('user_id')->orderBy('name')->get()
             ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'designation' => $s->designation])->values();
 
-        return view('admin.users.index', [
+        return response()->json([
             'users' => $users,
             'counts' => $counts,
             'stats' => $stats,
@@ -106,9 +106,7 @@ class UserController extends Controller
             ? ' A staff profile was created: set the basic salary in Payroll → Staff & salary setup.'
             : '';
 
-        return back()
-            ->with('success', "Account created for {$user->name}.".$note)
-            ->with('credentials', ['name' => $user->name, 'email' => $user->email, 'password' => $plain]);
+        return response()->json(["message" => "Account created for {$user->name}.".$note]);
     }
 
     public function update(Request $request, User $user)
@@ -116,7 +114,7 @@ class UserController extends Controller
         $this->guardTarget($user);
         $this->save($request, $user);
 
-        return back()->with('success', 'User updated.');
+        return response()->json(["message" => 'User updated.']);
     }
 
     public function toggleStatus(User $user)
@@ -124,12 +122,12 @@ class UserController extends Controller
         $this->guardTarget($user);
 
         if ($user->id === auth()->id()) {
-            return back()->withErrors(['user' => 'You cannot suspend your own account.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         if ($user->status === 'active') {
             if ($user->hasRole('admin') && $this->otherActiveAdmins($user) === 0) {
-                return back()->withErrors(['user' => 'There must be at least one active admin.']);
+                return response()->json(["message" => "Validation failed."], 422);
             }
 
             DB::transaction(function () use ($user): void {
@@ -138,12 +136,12 @@ class UserController extends Controller
             });
             $this->endSessions($user);
 
-            return back()->with('success', "{$user->name} was suspended and logged out.");
+            return response()->json(["message" => "{$user->name} was suspended and logged out."]);
         }
 
         $user->forceFill(['status' => 'active'])->save();
 
-        return back()->with('success', "{$user->name} is active again.");
+        return response()->json(["message" => "{$user->name} is active again."]);
     }
 
     public function resetPassword(User $user)
@@ -157,9 +155,7 @@ class UserController extends Controller
             $this->endSessions($user);
         }
 
-        return back()
-            ->with('success', "Password reset for {$user->name}.")
-            ->with('credentials', ['name' => $user->name, 'email' => $user->email, 'password' => $plain]);
+        return response()->json(["message" => "Password reset for {$user->name}."]);
     }
 
     public function toggleWebsite(User $user)
@@ -167,14 +163,14 @@ class UserController extends Controller
         $staff = StaffMember::where('user_id', $user->id)->first();
 
         if (! $staff) {
-            return back()->withErrors(['user' => 'This user has no staff profile. Edit the user and tick "This person works at the school".']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $staff->update(['show_on_website' => ! $staff->show_on_website]);
 
-        return back()->with('success', $staff->show_on_website
+        return response()->json(["message" => $staff->show_on_website
             ? "{$user->name}'s legacy website marker was enabled. It does not publish a public Team profile."
-            : "{$user->name}'s legacy website marker was disabled. Public Team profiles are managed separately.");
+            : "{$user->name}'s legacy website marker was disabled. Public Team profiles are managed separately."]);
     }
 
     public function destroy(User $user)
@@ -182,10 +178,10 @@ class UserController extends Controller
         $this->guardTarget($user);
 
         if ($user->id === auth()->id()) {
-            return back()->withErrors(['user' => 'You cannot delete your own account.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
         if ($user->hasRole('admin') && $this->otherActiveAdmins($user) === 0) {
-            return back()->withErrors(['user' => 'There must be at least one active admin.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $photos = array_filter([$user->photo]);
@@ -198,7 +194,7 @@ class UserController extends Controller
             Photo::deleteIfUnused($p);
         }
 
-        return back()->with('success', 'User deleted. Their staff record (if any) was kept for payroll history.');
+        return response()->json(["message" => 'User deleted. Their staff record (if any) was kept for payroll history.']);
     }
 
     public function csv(Request $request): StreamedResponse
@@ -234,7 +230,7 @@ class UserController extends Controller
     {
         abort_unless(auth()->user()->status === 'active' && auth()->user()->hasRole('admin'), 403);
 
-        return view('admin.users.editorial-access', [
+        return response()->json([
             'recipient' => $user,
             'groups' => PublicEditorialGrant::GROUPS,
             'eligible' => PublicEditorialGrant::isEligibleRecipient($user),
@@ -259,8 +255,7 @@ class UserController extends Controller
 
         $grants->sync($request->user(), $user, $validated['permissions'] ?? []);
 
-        return redirect()->route('admin.users.editorial-access', $user)
-            ->with('success', 'Public editorial access updated.');
+        return response()->json(["message" => 'Public editorial access updated.']);
     }
 
     // ---------------------------------------------------------------------

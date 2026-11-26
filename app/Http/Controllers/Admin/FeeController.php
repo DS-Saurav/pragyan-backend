@@ -121,7 +121,7 @@ class FeeController extends Controller
 
         $years = collect(AcademicYear::options());
 
-        return view('admin.fees.index', [
+        return response()->json([
             'receipts' => $receipts,
             'counts' => $counts,
             'stats' => $stats,
@@ -170,9 +170,7 @@ class FeeController extends Controller
         foreach ($items as $it) {
             if ($it['fee_head_id'] && $it['period']
                 && FeeReceipt::alreadyBilled((int) $data['student_id'], $data['academic_year'], (int) $it['fee_head_id'], $it['period'])) {
-                return back()->withErrors([
-                    'items' => "{$it['description']} for {$it['period']} is already billed to this student for {$data['academic_year']}.",
-                ])->withInput();
+                return response()->json(["message" => "Validation failed."], 422);
             }
         }
 
@@ -187,9 +185,7 @@ class FeeController extends Controller
 
             $key = $it['fee_head_id'].'|'.$it['period'];
             if (isset($seen[$key])) {
-                return back()->withErrors([
-                    'items' => "{$it['description']} for {$it['period']} is listed twice in this receipt.",
-                ])->withInput();
+                return response()->json(["message" => "Validation failed."], 422);
             }
             $seen[$key] = true;
         }
@@ -200,12 +196,12 @@ class FeeController extends Controller
         $paying = round((float) ($data['paying_now'] ?? 0), 2);
 
         if ($discount > $subtotal) {
-            return back()->withErrors(['discount' => 'Discount cannot be more than the fee total.'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $total = round($subtotal - $discount + $fine, 2);
         if ($paying > $total) {
-            return back()->withErrors(['paying_now' => 'Amount received cannot be more than the total due (Rs. '.number_format($total, 2).').'])->withInput();
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // The number is assigned, the receipt and its items are created, and
@@ -245,17 +241,13 @@ class FeeController extends Controller
             });
         } catch (QueryException $e) {
             if (FeeReceipt::isBillIdentityCollision($e)) {
-                return back()->withErrors([
-                    'items' => "One of these fees is already billed to this student for {$data['academic_year']}.",
-                ])->withInput();
+                return response()->json(["message" => "Validation failed."], 422);
             }
 
             throw $e;
         }
 
-        return redirect()->back()
-            ->with('success', "Receipt {$receipt->receipt_no} created.")
-            ->with('print_receipt', $receipt->id);
+        return response()->json(["message" => $receipt->id]);
     }
 
     /** Collect (part of) the remaining balance of an existing receipt. */
@@ -292,10 +284,10 @@ class FeeController extends Controller
         });
 
         if ($error) {
-            return back()->withErrors(['payment' => $error]);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
-        return back()->with('success', 'Payment recorded.')->with('print_receipt', $receipt->id);
+        return response()->json(["message" => $receipt->id]);
     }
 
     public function refund(Request $request, FeeReceipt $receipt)
@@ -330,16 +322,16 @@ class FeeController extends Controller
         });
 
         if ($error) {
-            return back()->withErrors(['refund' => $error]);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
-        return back()->with('success', 'Receipt refunded.');
+        return response()->json(["message" => 'Receipt refunded.']);
     }
 
     public function destroy(FeeReceipt $receipt)
     {
         if (! in_array($receipt->status, ['unpaid', 'refunded'], true)) {
-            return back()->withErrors(['delete' => 'Only unpaid or refunded receipts can be deleted. Refund this receipt first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         // Release billing-identity claims first (must happen before or during
@@ -351,9 +343,9 @@ class FeeController extends Controller
             $receipt->delete();
         });
 
-        return back()->with('success', 'Receipt deleted.');
+        return response()->json(["message" => 'Receipt deleted.']);
 
-        return back()->with('success', 'Receipt deleted.');
+        return response()->json(["message" => 'Receipt deleted.']);
     }
 
     /** Printable receipt (student copy + office copy). */
@@ -362,7 +354,7 @@ class FeeController extends Controller
         $receipt->load('student', 'items', 'payments.receiver', 'collector');
         $class = SchoolClass::find($receipt->student->school_class_id ?? 0);
 
-        return view('admin.fees.receipt', compact('receipt', 'class'));
+        return response()->json(compact('receipt', 'class'));
     }
 
     public function csv(Request $request): StreamedResponse

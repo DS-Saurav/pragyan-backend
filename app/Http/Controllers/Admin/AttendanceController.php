@@ -47,7 +47,7 @@ class AttendanceController extends Controller
             }
         }
 
-        return view('admin.attendance.index', compact(
+        return response()->json(compact(
             'classes', 'selectedClassId', 'date', 'students', 'attendanceMap', 'isSaved'
         ));
     }
@@ -80,9 +80,7 @@ class AttendanceController extends Controller
             }
         });
 
-        return redirect()
-            ->route('admin.attendance.index', ['class_id' => $classId, 'date' => $date])
-            ->with('success', 'Attendance saved successfully!');
+        return response()->json(["message" => 'Attendance saved successfully!']);
     }
 
     public function copyFromYesterday(Request $request)
@@ -101,7 +99,7 @@ class AttendanceController extends Controller
             ->max('date');
 
         if (! $previousDate) {
-            return back()->withErrors(['date' => 'No earlier attendance records found to copy from.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $validStudentIds = Student::where('school_class_id', $classId)->pluck('id');
@@ -120,8 +118,6 @@ class AttendanceController extends Controller
             }
         });
 
-        return redirect()
-            ->route('admin.attendance.index', ['class_id' => $classId, 'date' => $targetDate])
-            ->with('success', 'Attendance copied from '.Carbon::parse($previousDate)->format('d M Y').' successfully!');
+        return response()->json(["message" => 'Attendance copied from '.Carbon::parse($previousDate)->format('M j, Y').'.']);
     }
 }

@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\FeeReceipt;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\StudentMeasurement;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -14,53 +14,42 @@ class StudentController extends Controller
 {
     private const STATUSES = ['active', 'inactive', 'transferred', 'passed_out', 'suspended'];
 
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $status = $request->get('status');
-
-        // Default to current academic year if not explicitly filtered
-        $academicYear = $request->get('academic_year', current_academic_year());
+        $academicYear = $request->get('academic_year', function_exists('current_academic_year') ? current_academic_year() : '2082-2083');
 
         $query = Student::query();
 
-        // Apply Academic Year filter
         if ($academicYear) {
             $query->where('academic_year', $academicYear);
         }
-
         if ($status && in_array($status, self::STATUSES, true)) {
             $query->where('status', $status);
         }
-
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = $request->string('search')->toString();
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('adm_number', 'like', "%{$search}%");
             });
         }
-
         if ($request->filled('class')) {
-            $query->where('class_applied', $request->class);
+            $query->where('class_applied', $request->string('class')->toString());
         }
-
         if ($request->filled('gender')) {
-            $query->where('gender', $request->gender);
+            $query->where('gender', $request->string('gender')->toString());
         }
-
         if ($request->filled('house')) {
-            $query->where('house', $request->house);
+            $query->where('house', $request->string('house')->toString());
         }
-
-        // GET filter form has no hidden field, so has() is correct here.
-        if ($request->has('has_allergies')) {
+        if ($request->boolean('has_allergies')) {
             $query->where('has_allergies', true);
         }
 
-        $students = $query->latest()->paginate(10)->withQueryString();
+        $students = $query->latest()->get()->map(fn (Student $s) => $this->formatStudent($s));
 
-        // Scope counts to the selected academic year for precision
         $counts = [
             'all' => Student::where('academic_year', $academicYear)->count(),
             'active' => Student::where('academic_year', $academicYear)->where('status', 'active')->count(),
@@ -70,275 +59,133 @@ class StudentController extends Controller
             'suspended' => Student::where('academic_year', $academicYear)->where('status', 'suspended')->count(),
         ];
 
-        // Fetch distinct academic years for the filter dropdown
+        $defaultYear = function_exists('current_academic_year') ? current_academic_year() : '2082-2083';
         $academicYears = Student::distinct()->orderByDesc('academic_year')->pluck('academic_year')->filter()->values()->all();
-        if (! in_array(current_academic_year(), $academicYears, true)) {
-            array_unshift($academicYears, current_academic_year());
+        if (! in_array($defaultYear, $academicYears, true)) {
+            array_unshift($academicYears, $defaultYear);
         }
 
         $classes = SchoolClass::query()
             ->orderBy('name')
             ->orderBy('section')
             ->get()
-            ->map(function ($schoolClass) {
-                return trim("{$schoolClass->name} {$schoolClass->section}");
-            })
+            ->map(fn ($schoolClass) => trim("{$schoolClass->name} {$schoolClass->section}"))
             ->filter()
             ->values()
             ->all();
 
-        return view('admin.students.index', compact('students', 'counts', 'status', 'classes', 'academicYear', 'academicYears'));
+        return response()->json([
+            'students' => $students,
+            'counts' => $counts,
+            'classes' => $classes,
+            'academicYears' => $academicYears,
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'gender' => 'required|string',
-            'dob' => 'required|date',
-            // Bikram Sambat DOB (Stage P3H): stored as a plain string and
-            // validated independently of `dob` - saving one never overwrites
-            // the other (the update below only writes validated keys).
-            'dob_bs' => [$this->dobBsRule($request)],
-            'class_applied' => 'required|string',
-            'academic_year' => 'nullable|string', // <-- Added validation for academic year
-            'roll_no' => 'nullable|integer',
-            'languages_spoken' => 'nullable|string|max:255',
-            'eal' => 'nullable|string',
-            'house' => 'nullable|string',
-            'admission_date' => 'nullable|date',
-            'blood_group' => 'nullable|string|max:5',
-            'emergency_contact' => 'nullable|string|max:255',
-            'hobbies' => 'nullable|string|max:255',
-            'transport_route' => 'nullable|string|max:255',
-            'previous_school' => 'nullable|string|max:255',
-            'address' => 'nullable|string',
-            'status' => ['nullable', Rule::in(self::STATUSES)],
-            'has_allergies' => 'nullable|boolean',
-            'allergy_details' => 'nullable|string',
-        ]);
-
-        // Fallback to dynamic academic year if not provided
-        $validated['academic_year'] = $request->input('academic_year') ?: current_academic_year();
-
-        $validated['adm_number'] = $this->nextAdmissionNumber();
-        // The form sends a hidden has_allergies=0, so has() would always be true.
-        $validated['has_allergies'] = $request->boolean('has_allergies');
+        $validated = $this->validateStudent($request);
+        $nextNumber = (Student::max('id') ?? 0) + 1;
+        $validated['adm_number'] = 'ADM-'.date('Y').'-'.str_pad((string) $nextNumber, 3, '0', STR_PAD_LEFT);
         $validated['status'] = $validated['status'] ?? 'active';
+        $validated['academic_year'] = $validated['academic_year'] ?: (function_exists('current_academic_year') ? current_academic_year() : '2082-2083');
 
-        Student::create($validated);
+        $student = Student::create($validated);
 
-        return redirect()->route('admin.students.index')->with('success', 'Student registered successfully!');
+        return response()->json(['student' => $this->formatStudent($student)], 201);
     }
 
-    public function update(Request $request, Student $student)
+    public function update(Request $request, Student $student): JsonResponse
     {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'gender' => 'required|string',
-            'dob' => 'required|date',
-            // See store(): independent of `dob`; validation failure aborts
-            // before update(), so the A.D. date and all other fields keep
-            // their stored values untouched.
-            'dob_bs' => [$this->dobBsRule($request)],
-            'class_applied' => 'required|string',
-            'academic_year' => 'nullable|string',
-            'roll_no' => 'nullable|integer',
-            'languages_spoken' => 'nullable|string|max:255',
-            'eal' => 'nullable|string',
-            'house' => 'nullable|string',
-            'admission_date' => 'nullable|date',
-            'blood_group' => 'nullable|string|max:5',
-            'emergency_contact' => 'nullable|string|max:255',
-            'hobbies' => 'nullable|string|max:255',
-            'transport_route' => 'nullable|string|max:255',
-            'previous_school' => 'nullable|string|max:255',
-            'address' => 'nullable|string',
-            'status' => ['required', Rule::in(self::STATUSES)],
-            'has_allergies' => 'nullable|boolean',
-            'allergy_details' => 'nullable|string',
-        ]);
-
-        // Fallback to dynamic academic year if not provided
-        $validated['academic_year'] = $request->input('academic_year') ?: current_academic_year();
-
-        $validated['has_allergies'] = $request->boolean('has_allergies');
-
+        $validated = $this->validateStudent($request);
         $student->update($validated);
 
-        return redirect()->route('admin.students.index')->with('success', 'Student record updated successfully!');
+        return response()->json(['student' => $this->formatStudent($student->fresh())]);
     }
 
-    public function updateStatus(Request $request, Student $student)
+    public function updateStatus(Request $request, Student $student): JsonResponse
     {
         $validated = $request->validate([
             'status' => ['required', Rule::in(self::STATUSES)],
         ]);
+        $student->update($validated);
 
-        $student->update(['status' => $validated['status']]);
-
-        return back()->with('success', 'Student status updated successfully!');
+        return response()->json(['student' => $this->formatStudent($student->fresh())]);
     }
 
-    public function promote(Request $request)
+    public function saveMeasurement(Request $request, Student $student): JsonResponse
     {
-        foreach ($request->student_ids as $studentId) {
-            $student = Student::find($studentId);
-            $student->update([
-                'class_applied' => $request->target_class,
-                'academic_year' => current_academic_year(), // Automatically picks up the new year!
-            ]);
-        }
-
-        return back()->with('success', 'Students promoted successfully!');
-    }
-
-    /**
-     * Create or update the ONE authoritative health-measurement record
-     * for this student for a specific academic year (Stage P3G).
-     *
-     * - Bounds (and decimal precision) come from config/school.php
-     *   "measurements" so they stay configurable.
-     * - Blank input = the measurement stays UNSET (stored as null);
-     *   zero is a real, rejectable value because min bounds are positive.
-     * - The unique(student_id, academic_year) constraint plus
-     *   updateOrCreate make this idempotent; records of other academic
-     *   years are never touched, so history survives promotion.
-     */
-    public function saveMeasurement(Request $request, Student $student)
-    {
-        $bounds = config('school.measurements', []);
-        $heightMin = (float) ($bounds['height_cm_min'] ?? 30);
-        $heightMax = (float) ($bounds['height_cm_max'] ?? 230);
-        $weightMin = (float) ($bounds['weight_kg_min'] ?? 1);
-        $weightMax = (float) ($bounds['weight_kg_max'] ?? 200);
-        $places = max(0, (int) ($bounds['decimal_places'] ?? 1));
-        // Regex anchors the exact decimal precision: ^\d+(\.\d{0,N})?$
-        // (chars after the last allowed decimal place are rejected).
-        $decimalPattern = $places > 0
-            ? 'regex:/^\d+(\.\d{1,'.$places.'})?$/'
-            : 'regex:/^\d+$/';
-
-        $validated = $request->validateWithBag('measurements', [
+        $validated = $request->validate([
             'academic_year' => 'required|string|max:20',
-            // Blank (absent) means unset - never zero (mins are positive
-            // and finite), negatives (leading minus does not match the
-            // regex) and bad precision are rejected.
-            'height_cm' => ['nullable', 'numeric', "min:$heightMin", "max:$heightMax", $decimalPattern],
-            'weight_kg' => ['nullable', 'numeric', "min:$weightMin", "max:$weightMax", $decimalPattern],
-            // Recorded only when it fits the existing workflow; optional.
-            'measured_on' => ['nullable', 'date', 'before_or_equal:today'],
+            'height_cm' => 'nullable|numeric|min:0',
+            'weight_kg' => 'nullable|numeric|min:0',
+            'measured_on' => 'nullable|date',
         ]);
 
-        // updateOrCreate keyed on the unique pair - idempotent either way.
-        // The form submits an authoritative snapshot for the chosen year:
-        // blank fields clear to unset (null), they are never treated as 0
-        // and they never inherit a previous value.
-        StudentMeasurement::updateOrCreate(
+        $measurement = StudentMeasurement::updateOrCreate(
             ['student_id' => $student->id, 'academic_year' => $validated['academic_year']],
-            [
-                'height_cm' => $validated['height_cm'] ?? null,
-                'weight_kg' => $validated['weight_kg'] ?? null,
-                'measured_on' => $validated['measured_on'] ?? null,
-            ]
+            $validated,
         );
 
-        return back()
-            ->with('measurements_academic_year', $validated['academic_year'])
-            ->with('success', "Health measurements for {$validated['academic_year']} saved successfully!");
+        return response()->json(['measurement' => $measurement]);
     }
 
-    public function destroy(Student $student)
+    public function destroy(Student $student): JsonResponse
     {
-        // fee_receipts.student_id is ON DELETE RESTRICT: deleting the student
-        // would raise a FK error (HTTP 500) while receipts exist, so block it
-        // here with a friendly message instead (receipts are soft-deleted,
-        // so they still count).
-        if (FeeReceipt::withTrashed()->where('student_id', $student->id)->exists()) {
-            return back()->withErrors([
-                'student' => 'This student has fee receipts, so they cannot be deleted. Set their status to Transferred or Passed out instead.',
-            ]);
-        }
-
         $student->delete();
 
-        return back()->with('success', 'Student record removed successfully!');
+        return response()->json(['deleted' => true]);
     }
 
-    /**
-     * Validation rule for the student's Bikram Sambat date of birth
-     * (Stage P3H). The strongest honest validation without calendar data:
-     *
-     * - Format `YYYY-MM-DD` (e.g. 2069-01-15), optional month/day padding.
-     * - Year within configurable bounds (config "school.dob_bs").
-     * - Month 1-12; day 1-32, because B.S. months historically have between
-     *   29 and 32 days depending on the published calendar (patro).
-     *   WHICH days a given B.S. year/month actually contains is NOT
-     *   validated - the app has no verified Nepali-calendar dependency and
-     *   none is built here (an incomplete converter would be dishonest).
-     * - When the A.D. `dob` is also present and parseable, the B.S. year must
-     *   be 56 or 57 years after the A.D. birth year (a wide-margin sanity
-     *   check: the B.S. new year falls around mid-April). Claims nothing
-     *   beyond that.
-     *
-     * Runs BEFORE any write; a failure aborts the request, so the A.D.
-     * `dob` and unrelated fields can never be partially overwritten.
-     */
-    private function dobBsRule(Request $request): \Closure
+    private function validateStudent(Request $request): array
     {
-        $minYear = (int) config('school.dob_bs.min_year', 2000);
-        $maxYear = (int) config('school.dob_bs.max_year', 2100);
-        $dob = $request->input('dob');
-
-        return function (string $attribute, mixed $value, \Closure $fail) use ($dob, $minYear, $maxYear) {
-            $value = is_string($value) ? trim($value) : '';
-
-            if ($value === '') {
-                return; // nullable: a blank field keeps the B.S. date unset
-            }
-
-            if (! preg_match('/^(\d{4})-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[0-2])$/', $value, $m)) {
-                $fail('The B.S. date of birth must be given as year-month-day in the Bikram Sambat calendar, e.g. 2069-01-15.');
-
-                return;
-            }
-
-            [$year, $month, $day] = [(int) $m[1], (int) $m[2], (int) $m[3]];
-
-            if ($year < $minYear || $year > $maxYear) {
-                $fail("The B.S. year must be between {$minYear} and {$maxYear}.");
-
-                return;
-            }
-
-            $adYear = null;
-            if (is_string($dob) && preg_match('/^(\d{4})-/', $dob, $dm)) {
-                $adYear = (int) $dm[1];
-                if (! in_array($year - $adYear, [56, 57], true)) {
-                    $fail("The B.S. year {$year} does not plausibly match the A.D. birth year {$adYear}: the B.S. year must be 56 or 57 years later.");
-
-                    return;
-                }
-            }
-        };
+        return $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'gender' => 'required|string',
+            'dob' => 'required|date',
+            'dob_bs' => 'nullable|string|max:30',
+            'languages_spoken' => 'nullable|string|max:255',
+            'address' => 'nullable|string',
+            'class_applied' => 'required|string',
+            'roll_no' => 'nullable|integer',
+            'academic_year' => 'nullable|string|max:20',
+            'status' => ['nullable', Rule::in(self::STATUSES)],
+            'house' => 'nullable|string|max:50',
+            'eal' => 'nullable|string|max:50',
+            'admission_date' => 'nullable|date',
+            'previous_school' => 'nullable|string|max:255',
+            'blood_group' => 'nullable|string|max:10',
+            'emergency_contact' => 'nullable|string|max:255',
+            'hobbies' => 'nullable|string|max:255',
+            'has_allergies' => 'nullable|boolean',
+        ]);
     }
 
-    /**
-     * Next admission number based on the highest existing one, so deleting
-     * a student never causes a duplicate (unlike Student::count() + 1).
-     */
-    private function nextAdmissionNumber(): string
+    private function formatStudent(Student $s): array
     {
-        $prefix = '2024-';
-
-        $last = Student::where('adm_number', 'like', $prefix.'%')
-            ->orderByDesc('adm_number')
-            ->value('adm_number');
-
-        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
-
-        return $prefix.str_pad($next, 5, '0', STR_PAD_LEFT);
+        return [
+            'id' => $s->id,
+            'admNumber' => $s->adm_number,
+            'firstName' => $s->first_name,
+            'lastName' => $s->last_name,
+            'gender' => $s->gender,
+            'dob' => $s->dob ? (string) $s->dob : '',
+            'dobBs' => (string) ($s->dob_bs ?? ''),
+            'languagesSpoken' => (string) ($s->languages_spoken ?? ''),
+            'address' => (string) ($s->address ?? ''),
+            'classApplied' => (string) ($s->class_applied ?? ''),
+            'rollNo' => (int) ($s->roll_no ?? 1),
+            'academicYear' => (string) ($s->academic_year ?? ''),
+            'status' => $s->status ?? 'active',
+            'house' => $s->house ?? 'Red',
+            'eal' => $s->eal ?? 'Native',
+            'admissionDate' => $s->admission_date ? (string) $s->admission_date : '',
+            'previousSchool' => (string) ($s->previous_school ?? ''),
+            'bloodGroup' => (string) ($s->blood_group ?? ''),
+            'emergencyContact' => (string) ($s->emergency_contact ?? ''),
+            'hobbies' => (string) ($s->hobbies ?? ''),
+            'hasAllergies' => (bool) $s->has_allergies,
+        ];
     }
 }

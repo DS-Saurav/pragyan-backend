@@ -40,7 +40,7 @@ class ParentController extends Controller
 
         $students = Student::all(); // For linking children modal dropdown
 
-        return view('admin.parents.index', compact('parents', 'students'));
+        return response()->json(compact('parents', 'students'));
     }
 
     public function store(Request $request)
@@ -57,7 +57,7 @@ class ParentController extends Controller
 
         ParentModel::create($validated);
 
-        return back()->with('success', 'Parent added successfully!');
+        return response()->json(["message" => 'Parent added successfully!']);
     }
 
     public function update(Request $request, ParentModel $parent)
@@ -74,14 +74,14 @@ class ParentController extends Controller
 
         $parent->update($validated);
 
-        return back()->with('success', 'Parent updated successfully!');
+        return response()->json(["message" => 'Parent updated successfully!']);
     }
 
     public function destroy(ParentModel $parent)
     {
         $parent->delete();
 
-        return back()->with('success', 'Parent deleted successfully!');
+        return response()->json(["message" => 'Parent deleted successfully!']);
     }
 
     public function linkChild(Request $request, ParentModel $parent)
@@ -89,14 +89,14 @@ class ParentController extends Controller
         $request->validate(['student_id' => 'required|exists:students,id']);
         $parent->students()->syncWithoutDetaching([$request->student_id]);
 
-        return back()->with('success', 'Child linked successfully!');
+        return response()->json(["message" => 'Child linked successfully!']);
     }
 
     public function unlinkChild(ParentModel $parent, Student $student)
     {
         $parent->students()->detach($student->id);
 
-        return back()->with('success', 'Child unlinked successfully!');
+        return response()->json(["message" => 'Child unlinked successfully!']);
     }
 
     /**
@@ -152,7 +152,7 @@ class ParentController extends Controller
             ->latest()
             ->get();
 
-        return view('admin.parents.pdf', compact('parents'));
+        return response()->json(compact('parents'));
     }
 
     /**

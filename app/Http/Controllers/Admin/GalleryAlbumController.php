@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\GalleryAlbum;
 use App\Models\GalleryAlbumRevision;
@@ -25,11 +27,11 @@ class GalleryAlbumController extends Controller
         private MediaLibrary $mediaLibrary,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
 
-        return view('admin.gallery.index', [
+        return response()->json([
             'albums' => GalleryAlbum::query()
                 ->with(['creator', 'editor', 'publisher', 'revisions', 'publishedRevision', 'scheduledRevision'])
                 ->orderByDesc('updated_at')
@@ -38,7 +40,7 @@ class GalleryAlbumController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(): JsonResponse
     {
         Gate::authorize('gallery.author');
 
@@ -49,16 +51,15 @@ class GalleryAlbumController extends Controller
         ]));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse
     {
         Gate::authorize('gallery.author');
         $album = $this->galleryPublisher->createDraft($this->actor(), $this->albumData($this->validated($request)));
 
-        return redirect()->route('admin.gallery.edit', $album)
-            ->with('success', 'Gallery album saved as a private draft. Add a cover and ordered photographs before submitting it for review.');
+        return response()->json(["message" => 'Gallery album saved as a private draft. Add a cover and ordered photographs before submitting it for review.']);
     }
 
-    public function edit(GalleryAlbum $galleryAlbum): View
+    public function edit(GalleryAlbum $galleryAlbum): JsonResponse
     {
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
         $galleryAlbum->load([
@@ -76,24 +77,23 @@ class GalleryAlbumController extends Controller
         return $this->formView($galleryAlbum, $this->activeRevision($galleryAlbum));
     }
 
-    public function update(Request $request, GalleryAlbum $galleryAlbum): RedirectResponse
+    public function update(Request $request, GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->galleryPublisher->saveDraft($this->actor(), $galleryAlbum, $this->albumData($this->validated($request)));
 
-        return redirect()->route('admin.gallery.edit', $galleryAlbum)
-            ->with('success', $galleryAlbum->publication_state === 'published'
+        return response()->json(["message" => $galleryAlbum->publication_state === 'published'
                 ? 'A private replacement revision was saved. The currently published album has not changed.'
-                : 'Gallery draft saved.');
+                : 'Gallery draft saved.']);
     }
 
-    public function preview(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): View
+    public function preview(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
         $revision->load(['cover.asset', 'photos.asset']);
 
-        return view('admin.gallery.preview', [
+        return response()->json([
             'album' => $galleryAlbum,
             'revision' => $revision,
             'cover' => $revision->cover,
@@ -101,7 +101,7 @@ class GalleryAlbumController extends Controller
         ]);
     }
 
-    public function setCover(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function setCover(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
@@ -110,10 +110,10 @@ class GalleryAlbumController extends Controller
         unset($data['cover_asset_id']);
         $this->mediaLibrary->replaceGalleryAlbumRevisionCover($this->actor(), $revision, $asset, $data);
 
-        return back()->with('success', 'Gallery cover photograph saved.');
+        return response()->json(["message" => 'Gallery cover photograph saved.']);
     }
 
-    public function addPhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function addPhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
@@ -122,10 +122,10 @@ class GalleryAlbumController extends Controller
         unset($data['media_asset_id']);
         $this->mediaLibrary->addGalleryAlbumRevisionPhoto($this->actor(), $revision, $asset, $data);
 
-        return back()->with('success', 'Photograph added to the private Gallery revision.');
+        return response()->json(["message" => 'Photograph added to the private Gallery revision.']);
     }
 
-    public function updatePhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): RedirectResponse
+    public function updatePhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
@@ -141,20 +141,20 @@ class GalleryAlbumController extends Controller
             $this->mediaLibrary->replaceGalleryAlbumRevisionPhoto($this->actor(), $revision, $photo, $asset, $data);
         }
 
-        return back()->with('success', 'Gallery photograph updated.');
+        return response()->json(["message" => 'Gallery photograph updated.']);
     }
 
-    public function removePhoto(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): RedirectResponse
+    public function removePhoto(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
         $this->ensurePhotoBelongsToRevision($revision, $photo);
         $this->mediaLibrary->removeGalleryAlbumRevisionPhoto($this->actor(), $revision, $photo);
 
-        return back()->with('success', 'Photograph removed from the private Gallery revision.');
+        return response()->json(["message" => 'Photograph removed from the private Gallery revision.']);
     }
 
-    public function reorderPhotos(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function reorderPhotos(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
@@ -162,28 +162,28 @@ class GalleryAlbumController extends Controller
         $photoIds = $rawOrder === '' ? [] : array_map('trim', explode(',', $rawOrder));
         $this->mediaLibrary->reorderGalleryAlbumRevisionPhotos($this->actor(), $revision, $photoIds);
 
-        return back()->with('success', 'Gallery photograph order saved.');
+        return response()->json(["message" => 'Gallery photograph order saved.']);
     }
 
-    public function submit(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function submit(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.author');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
         $this->galleryPublisher->submit($this->actor(), $galleryAlbum, $revision);
 
-        return back()->with('success', 'Gallery revision submitted for review.');
+        return response()->json(["message" => 'Gallery revision submitted for review.']);
     }
 
-    public function approve(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function approve(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.review');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
         $this->galleryPublisher->approve($this->actor(), $galleryAlbum, $revision);
 
-        return back()->with('success', 'Gallery revision approved for publication.');
+        return response()->json(["message" => 'Gallery revision approved for publication.']);
     }
 
-    public function publish(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): RedirectResponse
+    public function publish(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
@@ -195,56 +195,56 @@ class GalleryAlbumController extends Controller
             : CarbonImmutable::parse($data['scheduled_for'], GalleryPublisher::TIMEZONE);
         $this->galleryPublisher->publish($this->actor(), $galleryAlbum, $revision, $scheduledFor);
 
-        return back()->with('success', $scheduledFor === null
+        return response()->json(["message" => $scheduledFor === null
             ? 'Gallery album published.'
-            : 'Gallery album scheduled for publication.');
+            : 'Gallery album scheduled for publication.']);
     }
 
-    public function withdraw(GalleryAlbum $galleryAlbum): RedirectResponse
+    public function withdraw(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->galleryPublisher->withdraw($this->actor(), $galleryAlbum);
 
-        return back()->with('success', 'Gallery album withdrawn from the public website.');
+        return response()->json(["message" => 'Gallery album withdrawn from the public website.']);
     }
 
-    public function archive(GalleryAlbum $galleryAlbum): RedirectResponse
+    public function archive(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->galleryPublisher->archive($this->actor(), $galleryAlbum);
 
-        return back()->with('success', 'Gallery album archived. Its editorial history has been retained.');
+        return response()->json(["message" => 'Gallery album archived. Its editorial history has been retained.']);
     }
 
-    public function restore(GalleryAlbum $galleryAlbum): RedirectResponse
+    public function restore(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->galleryPublisher->restore($this->actor(), $galleryAlbum);
 
-        return back()->with('success', 'Gallery album restored as a private draft.');
+        return response()->json(["message" => 'Gallery album restored as a private draft.']);
     }
 
-    public function feature(GalleryAlbum $galleryAlbum): RedirectResponse
+    public function feature(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->galleryPublisher->setFeatured($this->actor(), $galleryAlbum);
 
-        return back()->with('success', 'This is now the optional Gallery preview on the homepage.');
+        return response()->json(["message" => 'This is now the optional Gallery preview on the homepage.']);
     }
 
-    public function unfeature(GalleryAlbum $galleryAlbum): RedirectResponse
+    public function unfeature(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
         $this->galleryPublisher->setFeatured($this->actor(), null);
 
-        return back()->with('success', 'The homepage no longer has a featured Gallery preview.');
+        return response()->json(["message" => 'The homepage no longer has a featured Gallery preview.']);
     }
 
-    private function formView(GalleryAlbum $album, GalleryAlbumRevision $revision): View
+    private function formView(GalleryAlbum $album, GalleryAlbumRevision $revision): JsonResponse
     {
         $revision->loadMissing(['cover.asset', 'photos.asset']);
 
-        return view('admin.gallery.form', [
+        return response()->json([
             'album' => $album,
             'revision' => $revision,
             'assets' => MediaAsset::query()

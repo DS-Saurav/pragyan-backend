@@ -43,7 +43,7 @@ class InventoryController extends Controller
         $teachers = Teacher::where('status', 'active')->orderBy('first_name')->get();
         $classes = class_exists(SchoolClass::class) ? SchoolClass::all() : collect();
 
-        return view('admin.inventory.index', compact('items', 'counts', 'tab', 'teachers', 'classes'));
+        return response()->json(compact('items', 'counts', 'tab', 'teachers', 'classes'));
     }
 
     public function store(Request $request)
@@ -79,7 +79,7 @@ class InventoryController extends Controller
             }
         });
 
-        return back()->with('success', 'Inventory item created with movement ledger initialized!');
+        return response()->json(["message" => 'Inventory item created with movement ledger initialized!']);
     }
 
     public function restock(Request $request, InventoryItem $inventoryItem)
@@ -109,7 +109,7 @@ class InventoryController extends Controller
             ]);
         });
 
-        return back()->with('success', "Successfully restocked {$validated['quantity']} {$inventoryItem->unit}(s) of {$inventoryItem->name}.");
+        return response()->json(["message" => "Successfully restocked {$validated['quantity']} {$inventoryItem->unit}(s) of {$inventoryItem->name}."]);
     }
 
     public function dispense(Request $request, InventoryItem $inventoryItem)
@@ -143,7 +143,7 @@ class InventoryController extends Controller
             ]);
         });
 
-        return back()->with('success', "Dispensed {$validated['quantity']} {$inventoryItem->unit}(s) to {$validated['recipient_name']}.");
+        return response()->json(["message" => "Dispensed {$validated['quantity']} {$inventoryItem->unit}(s) to {$validated['recipient_name']}."]);
     }
 
     public function show(InventoryItem $inventoryItem)
@@ -164,13 +164,13 @@ class InventoryController extends Controller
 
         $inventoryItem->update($validated);
 
-        return back()->with('success', 'Inventory item details updated successfully!');
+        return response()->json(["message" => 'Inventory item details updated successfully!']);
     }
 
     public function destroy(InventoryItem $inventoryItem)
     {
         $inventoryItem->delete();
 
-        return back()->with('success', 'Inventory item removed successfully!');
+        return response()->json(["message" => 'Inventory item removed successfully!']);
     }
 }

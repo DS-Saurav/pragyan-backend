@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Models\SchoolEvent;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -15,7 +17,7 @@ class PublicCalendarController extends Controller
 
     private const UPCOMING_LIMIT = 8;
 
-    public function index(Request $request): View
+    public function index(Request $request): JsonResponse
     {
         $today = CarbonImmutable::now(self::TIMEZONE)->startOfDay();
         $month = $this->selectedMonth($request->query('month'), $today);
@@ -34,7 +36,7 @@ class PublicCalendarController extends Controller
             return CarbonImmutable::parse($event->date, self::TIMEZONE)->isSameMonth($month);
         })->values();
 
-        return view('frontend.calendar', [
+        return response()->json([
             'events' => $events,
             'monthEvents' => $monthEvents,
             'days' => $this->calendarDays($start, $end),

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Http\JsonResponse;
+
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Models\PublicPage;
@@ -28,7 +30,7 @@ class PublicPageController extends Controller
         private PublicPageMarkdown $markdown,
     ) {}
 
-    public function index(): View
+    public function index(): JsonResponse
     {
         $this->authorizeAny(['public_pages.author', 'public_pages.review', 'public_pages.publish']);
         $existing = PublicPage::query()
@@ -36,7 +38,7 @@ class PublicPageController extends Controller
             ->get()
             ->keyBy('type');
 
-        return view('admin.public-pages.index', [
+        return response()->json([
             'pages' => collect(PublicPage::TYPES)->mapWithKeys(
                 fn (string $type): array => [$type => $existing->get($type)],
             ),
@@ -50,7 +52,7 @@ class PublicPageController extends Controller
         ]);
     }
 
-    public function create(string $type): View
+    public function create(string $type): JsonResponse
     {
         Gate::authorize('public_pages.author');
         $this->ensureType($type);
@@ -62,7 +64,7 @@ class PublicPageController extends Controller
         );
     }
 
-    public function store(Request $request, string $type): RedirectResponse
+    public function store(Request $request, string $type): JsonResponse
     {
         Gate::authorize('public_pages.author');
         $this->ensureType($type);
@@ -74,11 +76,10 @@ class PublicPageController extends Controller
             $this->updateFeatureWhenRequested($data, $revision);
         }
 
-        return redirect()->route('admin.public-pages.edit', $page)
-            ->with('success', 'Public page saved as a private draft. Submit it for review when the approved content is ready.');
+        return response()->json(["message" => 'Public page saved as a private draft. Submit it for review when the approved content is ready.']);
     }
 
-    public function edit(PublicPage $publicPage): View
+    public function edit(PublicPage $publicPage): JsonResponse
     {
         $this->authorizeAny(['public_pages.author', 'public_pages.review', 'public_pages.publish']);
         $publicPage->load([
@@ -94,26 +95,25 @@ class PublicPageController extends Controller
         return $this->formView($publicPage, $this->activeRevision($publicPage));
     }
 
-    public function update(Request $request, PublicPage $publicPage): RedirectResponse
+    public function update(Request $request, PublicPage $publicPage): JsonResponse
     {
         Gate::authorize('public_pages.author');
         $data = $this->validated($request);
         $revision = $this->publisher->saveDraft($this->actor(), $publicPage, $this->pageData($data));
         $this->updateFeatureWhenRequested($data, $revision);
 
-        return redirect()->route('admin.public-pages.edit', $publicPage)
-            ->with('success', $publicPage->publication_state === 'published'
+        return response()->json(["message" => $publicPage->publication_state === 'published'
                 ? 'A private replacement revision was saved. The current public page has not changed.'
-                : 'Public page draft saved.');
+                : 'Public page draft saved.']);
     }
 
-    public function preview(PublicPage $publicPage, PublicPageRevision $revision): View
+    public function preview(PublicPage $publicPage, PublicPageRevision $revision): JsonResponse
     {
         $this->authorizeAny(['public_pages.author', 'public_pages.review', 'public_pages.publish']);
         $this->ensureRevisionBelongsToPage($publicPage, $revision);
         $revision->load(['academicStages', 'featureImage.asset']);
 
-        return view('admin.public-pages.preview', [
+        return response()->json([
             'page' => $publicPage,
             'revision' => $revision,
             'markdown' => $this->markdown,
@@ -121,25 +121,25 @@ class PublicPageController extends Controller
         ]);
     }
 
-    public function submit(PublicPage $publicPage, PublicPageRevision $revision): RedirectResponse
+    public function submit(PublicPage $publicPage, PublicPageRevision $revision): JsonResponse
     {
         Gate::authorize('public_pages.author');
         $this->ensureRevisionBelongsToPage($publicPage, $revision);
         $this->publisher->submit($this->actor(), $publicPage, $revision);
 
-        return back()->with('success', 'Public page revision submitted for review.');
+        return response()->json(["message" => 'Public page revision submitted for review.']);
     }
 
-    public function approve(PublicPage $publicPage, PublicPageRevision $revision): RedirectResponse
+    public function approve(PublicPage $publicPage, PublicPageRevision $revision): JsonResponse
     {
         Gate::authorize('public_pages.review');
         $this->ensureRevisionBelongsToPage($publicPage, $revision);
         $this->publisher->approve($this->actor(), $publicPage, $revision);
 
-        return back()->with('success', 'Public page revision approved for publication.');
+        return response()->json(["message" => 'Public page revision approved for publication.']);
     }
 
-    public function publish(Request $request, PublicPage $publicPage, PublicPageRevision $revision): RedirectResponse
+    public function publish(Request $request, PublicPage $publicPage, PublicPageRevision $revision): JsonResponse
     {
         Gate::authorize('public_pages.publish');
         $this->ensureRevisionBelongsToPage($publicPage, $revision);
@@ -154,46 +154,46 @@ class PublicPageController extends Controller
         }
         $this->publisher->publish($this->actor(), $publicPage, $revision, $scheduledFor);
 
-        return back()->with('success', $scheduledFor === null
+        return response()->json(["message" => $scheduledFor === null
             ? 'Public page published.'
-            : 'Public page scheduled for publication.');
+            : 'Public page scheduled for publication.']);
     }
 
-    public function withdraw(PublicPage $publicPage): RedirectResponse
+    public function withdraw(PublicPage $publicPage): JsonResponse
     {
         Gate::authorize('public_pages.publish');
         $this->publisher->withdraw($this->actor(), $publicPage);
 
-        return back()->with('success', 'Public page withdrawn from the public website.');
+        return response()->json(["message" => 'Public page withdrawn from the public website.']);
     }
 
-    public function cancelSchedule(PublicPage $publicPage): RedirectResponse
+    public function cancelSchedule(PublicPage $publicPage): JsonResponse
     {
         Gate::authorize('public_pages.publish');
         $this->publisher->cancelSchedule($this->actor(), $publicPage);
 
-        return back()->with('success', 'Scheduled public page publication cancelled.');
+        return response()->json(["message" => 'Scheduled public page publication cancelled.']);
     }
 
-    public function archive(PublicPage $publicPage): RedirectResponse
+    public function archive(PublicPage $publicPage): JsonResponse
     {
         Gate::authorize('public_pages.publish');
         $this->publisher->archive($this->actor(), $publicPage);
 
-        return back()->with('success', 'Public page archived. Its editorial history has been retained.');
+        return response()->json(["message" => 'Public page archived. Its editorial history has been retained.']);
     }
 
-    public function restore(PublicPage $publicPage): RedirectResponse
+    public function restore(PublicPage $publicPage): JsonResponse
     {
         Gate::authorize('public_pages.publish');
         $this->publisher->restore($this->actor(), $publicPage);
 
-        return back()->with('success', 'Public page restored as a private draft.');
+        return response()->json(["message" => 'Public page restored as a private draft.']);
     }
 
-    private function formView(PublicPage $page, PublicPageRevision $revision): View
+    private function formView(PublicPage $page, PublicPageRevision $revision): JsonResponse
     {
-        return view('admin.public-pages.form', [
+        return response()->json([
             'page' => $page,
             'revision' => $revision,
             'type' => $page->type,

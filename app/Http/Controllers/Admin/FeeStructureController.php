@@ -48,7 +48,7 @@ class FeeStructureController extends Controller
             ->merge(FeeReceiptItem::whereNotNull('fee_head_id')->distinct()->pluck('fee_head_id'))
             ->unique();
 
-        return view('admin.fee-structure.index', compact(
+        return response()->json(compact(
             'years', 'year', 'classes', 'class', 'heads', 'amounts', 'overview', 'studentCounts', 'usedHeadIds'
         ));
     }
@@ -87,8 +87,7 @@ class FeeStructureController extends Controller
             }
         });
 
-        return redirect()->route('admin.fee-structure.index', ['year' => $data['academic_year'], 'class_id' => $data['class_id']])
-            ->with('success', 'Fee structure saved. Receipts that already exist are not changed.');
+        return response()->json(["message" => 'Fee structure saved. Receipts that already exist are not changed.']);
     }
 
     /** Copy one class's price list to other classes and/or another year, with an optional % increase. */
@@ -108,7 +107,7 @@ class FeeStructureController extends Controller
             ->get();
 
         if ($source->isEmpty()) {
-            return back()->withErrors(['copy' => 'The class you are copying from has no fee amounts yet. Save them first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $pct = (float) ($data['increase_percent'] ?? 0);
@@ -142,8 +141,7 @@ class FeeStructureController extends Controller
             }
         });
 
-        return redirect()->route('admin.fee-structure.index', ['year' => $data['to_year'], 'class_id' => $data['from_class_id']])
-            ->with('success', "Copied: {$created} fee amount(s) created, {$updated} updated.");
+        return response()->json(["message" => "Copied: {$created} fee amount(s) created, {$updated} updated."]);
     }
 
     /** Create one unpaid receipt per student of a class for a period (e.g. Baisakh). Students already billed are skipped. */
@@ -166,12 +164,12 @@ class FeeStructureController extends Controller
             ->keyBy('fee_head_id');
 
         if ($structure->isEmpty()) {
-            return back()->withErrors(['generate' => 'No amounts are set for the chosen fee heads in this class and year. Set them in the price list first.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $students = ResultService::students((int) $data['class_id']);
         if ($students->isEmpty()) {
-            return back()->withErrors(['generate' => 'This class has no students.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $created = 0;
@@ -243,8 +241,7 @@ class FeeStructureController extends Controller
             $message .= ", {$skipped} student(s) skipped because they were already billed";
         }
 
-        return redirect()->route('admin.fees.index', ['tab' => 'unpaid', 'year' => $data['academic_year'], 'class_id' => $data['class_id']])
-            ->with('success', $message.'.');
+        return response()->json(["message" => $message.'.']);
     }
 
     // ---------------- Fee heads ----------------
@@ -258,7 +255,7 @@ class FeeStructureController extends Controller
 
         FeeHead::create($data);
 
-        return back()->with('success', 'Fee head added.');
+        return response()->json(["message" => 'Fee head added.']);
     }
 
     public function updateHead(Request $request, FeeHead $head)
@@ -271,7 +268,7 @@ class FeeStructureController extends Controller
 
         $head->update($data);
 
-        return back()->with('success', 'Fee head updated.');
+        return response()->json(["message" => 'Fee head updated.']);
     }
 
     public function destroyHead(FeeHead $head)
@@ -280,11 +277,11 @@ class FeeStructureController extends Controller
             || FeeReceiptItem::where('fee_head_id', $head->id)->exists();
 
         if ($used) {
-            return back()->withErrors(['head' => 'This fee head is already used in a fee structure or a receipt. Switch it off instead of deleting it.']);
+            return response()->json(["message" => "Validation failed."], 422);
         }
 
         $head->delete();
 
-        return back()->with('success', 'Fee head deleted.');
+        return response()->json(["message" => 'Fee head deleted.']);
     }
 }

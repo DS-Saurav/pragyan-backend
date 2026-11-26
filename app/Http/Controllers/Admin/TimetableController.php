@@ -53,7 +53,7 @@ class TimetableController extends Controller
         $subjects = Subject::orderBy('name')->get();
         $teachers = Teacher::orderBy('first_name')->get();
 
-        return view('admin.timetable.index', compact(
+        return response()->json(compact(
             'classes', 'selectedClassId', 'selectedClass',
             'days', 'periods', 'timetableData', 'subjects', 'teachers'
         ));
@@ -99,7 +99,7 @@ class TimetableController extends Controller
             }
         }
 
-        return back()->with('success', 'Timetable saved successfully!');
+        return response()->json(["message" => 'Timetable saved successfully!']);
     }
 
     public function storePeriodSlots(Request $request)
@@ -151,13 +151,13 @@ class TimetableController extends Controller
         // Delete any period slots that were removed from the modal list
         PeriodSlot::whereNotIn('id', $submittedIds)->delete();
 
-        return back()->with('success', 'Period slots updated successfully!');
+        return response()->json(["message" => 'Period slots updated successfully!']);
     }
 
     public function destroyPeriodSlot(PeriodSlot $period)
     {
         $period->delete();
 
-        return back()->with('success', 'Period slot deleted successfully!');
+        return response()->json(["message" => 'Period slot deleted successfully!']);
     }
 }
