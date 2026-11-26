@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\FeeStructureController;
 use App\Http\Controllers\Admin\GalleryAlbumController;
 use App\Http\Controllers\Admin\HallTicketController;
 use App\Http\Controllers\Admin\HelpdeskController;
+use App\Http\Controllers\Admin\HeroSlideController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\LessonPlanController;
 use App\Http\Controllers\Admin\LibraryController;
@@ -70,6 +71,7 @@ Route::post('/login', [AuthenticatedSessionController::class, 'store']);
 // Public Read-Only JSON Endpoints
 // -----------------------------------------------------------------------------
 Route::get('/media/{id}', [MediaFoundationController::class, 'published'])->whereNumber('id');
+Route::get('/hero-slides/{heroSlide}/image', [HeroSlideController::class, 'image'])->whereNumber('heroSlide');
 
 Route::prefix('public')->group(function (): void {
     Route::get('/homepage', [PublicHomepageController::class, 'index']);
@@ -235,6 +237,14 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
         Route::put('/admin/public-identity', [PublicIdentityController::class, 'update']);
         Route::get('/admin/public-photos', [PublicPhotoSlotController::class, 'index']);
         Route::put('/admin/public-photos/{slot}', [PublicPhotoSlotController::class, 'update']);
+
+        // Hero Slider Images
+        Route::get('/admin/hero-slides', [HeroSlideController::class, 'index']);
+        Route::post('/admin/hero-slides', [HeroSlideController::class, 'store']);
+        Route::patch('/admin/hero-slides/reorder', [HeroSlideController::class, 'reorder']);
+        Route::post('/admin/hero-slides/{heroSlide}', [HeroSlideController::class, 'update'])->whereNumber('heroSlide');
+        Route::patch('/admin/hero-slides/{heroSlide}', [HeroSlideController::class, 'update'])->whereNumber('heroSlide');
+        Route::delete('/admin/hero-slides/{heroSlide}', [HeroSlideController::class, 'destroy'])->whereNumber('heroSlide');
 
         // Parents
         Route::get('/admin/parents/export-csv', [ParentController::class, 'exportCsv']);

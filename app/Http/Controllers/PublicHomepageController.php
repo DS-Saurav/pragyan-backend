@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 
 use App\Http\Controllers\Admin\WebsiteSettingsController;
+use App\Models\HeroSlide;
 use App\Models\PublicAcademicStage;
 use App\Models\PublicPage;
 use App\Models\PublicPageRevision;
@@ -46,6 +47,13 @@ class PublicHomepageController extends Controller
 
         return response()->json([
             'identity' => $identity,
+            'heroSlides' => HeroSlide::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (HeroSlide $slide): array => $slide->toApiArray())
+                ->values(),
             'homeHeroPhoto' => $this->publicPhotoSlots->resolve('home_hero'),
             'homeLearningPhoto' => $this->publicPhotoSlots->resolve('home_learning'),
             'heroHeadline' => Setting::get('website_hero_headline'),

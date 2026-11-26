@@ -17,11 +17,11 @@ class StudentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $status = $request->get('status');
-        $academicYear = $request->get('academic_year', function_exists('current_academic_year') ? current_academic_year() : '2082-2083');
+        $academicYear = trim((string) $request->get('academic_year', ''));
 
         $query = Student::query();
 
-        if ($academicYear) {
+        if ($academicYear !== '' && $academicYear !== 'all') {
             $query->where('academic_year', $academicYear);
         }
         if ($status && in_array($status, self::STATUSES, true)) {
@@ -50,13 +50,17 @@ class StudentController extends Controller
 
         $students = $query->latest()->get()->map(fn (Student $s) => $this->formatStudent($s));
 
+        $countsBase = Student::query();
+        if ($academicYear !== '' && $academicYear !== 'all') {
+            $countsBase->where('academic_year', $academicYear);
+        }
         $counts = [
-            'all' => Student::where('academic_year', $academicYear)->count(),
-            'active' => Student::where('academic_year', $academicYear)->where('status', 'active')->count(),
-            'inactive' => Student::where('academic_year', $academicYear)->where('status', 'inactive')->count(),
-            'transferred' => Student::where('academic_year', $academicYear)->where('status', 'transferred')->count(),
-            'passed_out' => Student::where('academic_year', $academicYear)->where('status', 'passed_out')->count(),
-            'suspended' => Student::where('academic_year', $academicYear)->where('status', 'suspended')->count(),
+            'all' => (clone $countsBase)->count(),
+            'active' => (clone $countsBase)->where('status', 'active')->count(),
+            'inactive' => (clone $countsBase)->where('status', 'inactive')->count(),
+            'transferred' => (clone $countsBase)->where('status', 'transferred')->count(),
+            'passed_out' => (clone $countsBase)->where('status', 'passed_out')->count(),
+            'suspended' => (clone $countsBase)->where('status', 'suspended')->count(),
         ];
 
         $defaultYear = function_exists('current_academic_year') ? current_academic_year() : '2082-2083';
@@ -93,6 +97,11 @@ class StudentController extends Controller
         $student = Student::create($validated);
 
         return response()->json(['student' => $this->formatStudent($student)], 201);
+    }
+
+    public function show(Student $student): JsonResponse
+    {
+        return response()->json(['student' => $this->formatStudent($student)]);
     }
 
     public function update(Request $request, Student $student): JsonResponse
