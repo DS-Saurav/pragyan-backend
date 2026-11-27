@@ -70,7 +70,9 @@ Route::post('/login', [AuthenticatedSessionController::class, 'store']);
 // -----------------------------------------------------------------------------
 // Public Read-Only JSON Endpoints
 // -----------------------------------------------------------------------------
-Route::get('/media/{id}', [MediaFoundationController::class, 'published'])->whereNumber('id');
+Route::get('/media/{id}', [MediaFoundationController::class, 'published'])
+    ->whereNumber('id')
+    ->name('media.published');
 Route::get('/hero-slides/{heroSlide}/image', [HeroSlideController::class, 'image'])->whereNumber('heroSlide');
 
 Route::prefix('public')->group(function (): void {

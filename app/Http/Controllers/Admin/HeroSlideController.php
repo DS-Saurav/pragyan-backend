@@ -7,6 +7,7 @@ use App\Models\HeroSlide;
 use App\Services\MediaStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HeroSlideController extends Controller
@@ -28,13 +29,8 @@ class HeroSlideController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $rawFile = $request->files->get('image');
-        if ($rawFile && ! $rawFile->isValid() && in_array($rawFile->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
-            $maxUpload = ini_get('upload_max_filesize') ?: '2M';
-
-            return response()->json([
-                'message' => "Image is larger than PHP's upload_max_filesize ({$maxUpload}). Choose a smaller image or start PHP with -d upload_max_filesize=10M.",
-            ], 422);
+        if ($uploadError = $this->uploadError($request)) {
+            return $uploadError;
         }
 
         $validated = $request->validate([
@@ -68,6 +64,10 @@ class HeroSlideController extends Controller
 
     public function update(Request $request, HeroSlide $heroSlide): JsonResponse
     {
+        if ($uploadError = $this->uploadError($request)) {
+            return $uploadError;
+        }
+
         $validated = $request->validate([
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp,avif|max:10240',
             'alt_text' => 'nullable|string|max:255',
@@ -127,5 +127,43 @@ class HeroSlideController extends Controller
     public function image(HeroSlide $heroSlide): StreamedResponse
     {
         return $this->storage->stream($heroSlide->disk, $heroSlide->image_path);
+    }
+
+    private function uploadError(Request $request): ?JsonResponse
+    {
+        $file = $request->files->get('image');
+        if (! $file instanceof UploadedFile || $file->isValid()) {
+            return null;
+        }
+
+        $error = $file->getError();
+        if ($error === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+
+        $maxUpload = ini_get('upload_max_filesize') ?: '2M';
+
+        [$message, $status] = match ($error) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => [
+                "Image is larger than PHP's upload limit ({$maxUpload}). Choose a smaller image or increase PHP's upload_max_filesize setting.",
+                422,
+            ],
+            UPLOAD_ERR_PARTIAL => ['The image upload was interrupted. Please try again.', 422],
+            UPLOAD_ERR_NO_TMP_DIR => [
+                'The server could not create a temporary file for this upload. Please contact the administrator to check PHP upload_tmp_dir and temporary-folder permissions.',
+                500,
+            ],
+            UPLOAD_ERR_CANT_WRITE => [
+                'The server could not write the uploaded image to temporary storage. Please contact the administrator to check disk space and folder permissions.',
+                500,
+            ],
+            UPLOAD_ERR_EXTENSION => [
+                'A server extension stopped this image upload. Please contact the administrator.',
+                500,
+            ],
+            default => ['The server could not receive this image upload. Please try again or contact the administrator.', 500],
+        };
+
+        return response()->json(['message' => $message], $status);
     }
 }
