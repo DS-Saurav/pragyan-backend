@@ -670,7 +670,6 @@ final class PublicTranslationPublisher
         $sourceRevisionId = $this->sources->currentRevisionId($source);
         $alias = match ($type) {
             PublicTranslationSource::NEWS_STORY => 'news-story-revision',
-            PublicTranslationSource::GALLERY_ALBUM => 'gallery-album-revision',
             PublicTranslationSource::PUBLIC_PAGE => 'public-page-revision',
             PublicTranslationSource::PUBLIC_TEAM_PROFILE => 'public-team-profile-revision',
             default => null,

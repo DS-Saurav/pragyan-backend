@@ -2,345 +2,449 @@
 
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\Http\JsonResponse;
-
 use App\Http\Controllers\Controller;
 use App\Models\GalleryAlbum;
-use App\Models\GalleryAlbumRevision;
-use App\Models\MediaAsset;
-use App\Models\MediaAttachment;
+use App\Models\GalleryCategory;
+use App\Models\GalleryPhoto;
 use App\Models\Setting;
-use App\Models\User;
-use App\Services\Gallery\GalleryPublisher;
-use App\Services\Media\MediaLibrary;
-use Carbon\CarbonImmutable;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
+use App\Services\Gallery\GalleryVisibility;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class GalleryAlbumController extends Controller
 {
-    public function __construct(
-        private GalleryPublisher $galleryPublisher,
-        private MediaLibrary $mediaLibrary,
-    ) {}
-
     public function index(): JsonResponse
     {
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
 
+        $albums = GalleryAlbum::query()
+            ->with(['category', 'firstPhoto'])
+            ->withCount('photos')
+            ->orderByDesc('id')
+            ->paginate(30)
+            ->through(fn (GalleryAlbum $album): array => $this->serializeAlbum($album));
+
         return response()->json([
-            'albums' => GalleryAlbum::query()
-                ->with(['creator', 'editor', 'publisher', 'revisions', 'publishedRevision', 'scheduledRevision'])
-                ->orderByDesc('updated_at')
-                ->paginate(30),
-            'featuredAlbumId' => (int) Setting::get(GalleryPublisher::FEATURED_SETTING),
+            'albums' => $albums,
+            'categories' => GalleryCategory::query()->orderBy('id')->get(),
+            'featuredAlbumId' => (int) Setting::get(GalleryVisibility::FEATURED_SETTING),
         ]);
     }
 
-    public function create(): JsonResponse
+    public function show(GalleryAlbum $galleryAlbum): JsonResponse
     {
-        Gate::authorize('gallery.author');
+        $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
+        $galleryAlbum->load(['category', 'photos'])->loadCount('photos');
 
-        return $this->formView(new GalleryAlbum([
-            'publication_state' => 'draft',
-        ]), new GalleryAlbumRevision([
-            'workflow_state' => 'draft',
-        ]));
+        return response()->json([
+            'album' => $this->serializeAlbum($galleryAlbum, true),
+            'categories' => GalleryCategory::query()->orderBy('id')->get(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('gallery.author');
-        $album = $this->galleryPublisher->createDraft($this->actor(), $this->albumData($this->validated($request)));
 
-        return response()->json(["message" => 'Gallery album saved as a private draft. Add a cover and ordered photographs before submitting it for review.']);
-    }
+        $data = $this->validatedAlbum($request);
+        $slug = $this->uniqueAlbumSlug($data['slug'] ?? $data['title']);
+        $coverPath = $request->hasFile('cover_image')
+            ? $request->file('cover_image')->store('gallery/covers', 'r2')
+            : null;
 
-    public function edit(GalleryAlbum $galleryAlbum): JsonResponse
-    {
-        $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
-        $galleryAlbum->load([
-            'revisions.cover.asset',
-            'revisions.photos.asset',
-            'publishedRevision.cover.asset',
-            'publishedRevision.photos.asset',
-            'scheduledRevision.cover.asset',
-            'scheduledRevision.photos.asset',
-            'creator',
-            'editor',
-            'publisher',
+        $album = GalleryAlbum::create([
+            'category_id' => $data['category_id'] ?? null,
+            'title' => trim($data['title']),
+            'slug' => $slug,
+            'description' => $data['description'] ?? null,
+            'cover_image' => $coverPath,
+            'event_date' => $data['event_date'] ?? null,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
         ]);
 
-        return $this->formView($galleryAlbum, $this->activeRevision($galleryAlbum));
+        $album->load('category')->loadCount('photos');
+
+        return response()->json([
+            'message' => 'Gallery album created.',
+            'album' => $this->serializeAlbum($album),
+        ], 201);
     }
 
     public function update(Request $request, GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.author');
-        $this->galleryPublisher->saveDraft($this->actor(), $galleryAlbum, $this->albumData($this->validated($request)));
 
-        return response()->json(["message" => $galleryAlbum->publication_state === 'published'
-                ? 'A private replacement revision was saved. The currently published album has not changed.'
-                : 'Gallery draft saved.']);
-    }
+        $data = $this->validatedAlbum($request, $galleryAlbum);
+        $slug = $this->uniqueAlbumSlug($data['slug'] ?? $data['title'], $galleryAlbum);
 
-    public function preview(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $revision->load(['cover.asset', 'photos.asset']);
-
-        return response()->json([
-            'album' => $galleryAlbum,
-            'revision' => $revision,
-            'cover' => $revision->cover,
-            'photos' => $revision->photos,
-        ]);
-    }
-
-    public function setCover(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $data = $this->photoMetadata($request, true, 'cover_asset_id');
-        $asset = MediaAsset::findOrFail($data['cover_asset_id']);
-        unset($data['cover_asset_id']);
-        $this->mediaLibrary->replaceGalleryAlbumRevisionCover($this->actor(), $revision, $asset, $data);
-
-        return response()->json(["message" => 'Gallery cover photograph saved.']);
-    }
-
-    public function addPhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $data = $this->photoMetadata($request, true);
-        $asset = MediaAsset::findOrFail($data['media_asset_id']);
-        unset($data['media_asset_id']);
-        $this->mediaLibrary->addGalleryAlbumRevisionPhoto($this->actor(), $revision, $asset, $data);
-
-        return response()->json(["message" => 'Photograph added to the private Gallery revision.']);
-    }
-
-    public function updatePhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $this->ensurePhotoBelongsToRevision($revision, $photo);
-        $data = $this->photoMetadata($request, false);
-        $assetId = $data['media_asset_id'] ?? null;
-        unset($data['media_asset_id']);
-
-        if ($assetId === null || (int) $assetId === $photo->media_asset_id) {
-            $this->mediaLibrary->updateGalleryAlbumRevisionPhoto($this->actor(), $revision, $photo, $data);
-        } else {
-            $asset = MediaAsset::findOrFail($assetId);
-            $this->mediaLibrary->replaceGalleryAlbumRevisionPhoto($this->actor(), $revision, $photo, $asset, $data);
+        $coverPath = $galleryAlbum->cover_image;
+        if ($request->hasFile('cover_image')) {
+            $newPath = $request->file('cover_image')->store('gallery/covers', 'r2');
+            if ($coverPath && Storage::disk('r2')->exists($coverPath)) {
+                Storage::disk('r2')->delete($coverPath);
+            }
+            $coverPath = $newPath;
         }
 
-        return response()->json(["message" => 'Gallery photograph updated.']);
-    }
-
-    public function removePhoto(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision, MediaAttachment $photo): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $this->ensurePhotoBelongsToRevision($revision, $photo);
-        $this->mediaLibrary->removeGalleryAlbumRevisionPhoto($this->actor(), $revision, $photo);
-
-        return response()->json(["message" => 'Photograph removed from the private Gallery revision.']);
-    }
-
-    public function reorderPhotos(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $rawOrder = trim((string) $request->input('photo_order'));
-        $photoIds = $rawOrder === '' ? [] : array_map('trim', explode(',', $rawOrder));
-        $this->mediaLibrary->reorderGalleryAlbumRevisionPhotos($this->actor(), $revision, $photoIds);
-
-        return response()->json(["message" => 'Gallery photograph order saved.']);
-    }
-
-    public function submit(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.author');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $this->galleryPublisher->submit($this->actor(), $galleryAlbum, $revision);
-
-        return response()->json(["message" => 'Gallery revision submitted for review.']);
-    }
-
-    public function approve(GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.review');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $this->galleryPublisher->approve($this->actor(), $galleryAlbum, $revision);
-
-        return response()->json(["message" => 'Gallery revision approved for publication.']);
-    }
-
-    public function publish(Request $request, GalleryAlbum $galleryAlbum, GalleryAlbumRevision $revision): JsonResponse
-    {
-        Gate::authorize('gallery.publish');
-        $this->ensureRevisionBelongsToAlbum($galleryAlbum, $revision);
-        $data = $request->validate([
-            'scheduled_for' => ['nullable', 'date', 'after:now'],
+        $galleryAlbum->update([
+            'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : $galleryAlbum->category_id,
+            'title' => trim($data['title']),
+            'slug' => $slug,
+            'description' => $data['description'] ?? null,
+            'cover_image' => $coverPath,
+            'event_date' => $data['event_date'] ?? null,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $galleryAlbum->is_active,
         ]);
-        $scheduledFor = empty($data['scheduled_for'])
-            ? null
-            : CarbonImmutable::parse($data['scheduled_for'], GalleryPublisher::TIMEZONE);
-        $this->galleryPublisher->publish($this->actor(), $galleryAlbum, $revision, $scheduledFor);
 
-        return response()->json(["message" => $scheduledFor === null
-            ? 'Gallery album published.'
-            : 'Gallery album scheduled for publication.']);
+        if (! $galleryAlbum->is_active && (string) Setting::get(GalleryVisibility::FEATURED_SETTING) === (string) $galleryAlbum->id) {
+            Setting::set(GalleryVisibility::FEATURED_SETTING, null);
+        }
+
+        $galleryAlbum->load(['category', 'photos'])->loadCount('photos');
+
+        return response()->json([
+            'message' => 'Gallery album updated.',
+            'album' => $this->serializeAlbum($galleryAlbum, true),
+        ]);
     }
 
-    public function withdraw(GalleryAlbum $galleryAlbum): JsonResponse
+    public function destroy(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
-        $this->galleryPublisher->withdraw($this->actor(), $galleryAlbum);
 
-        return response()->json(["message" => 'Gallery album withdrawn from the public website.']);
+        $galleryAlbum->load('photos');
+
+        DB::transaction(function () use ($galleryAlbum): void {
+            if ((string) Setting::get(GalleryVisibility::FEATURED_SETTING) === (string) $galleryAlbum->id) {
+                Setting::set(GalleryVisibility::FEATURED_SETTING, null);
+            }
+
+            foreach ($galleryAlbum->photos as $photo) {
+                if ($photo->image_path && Storage::disk('r2')->exists($photo->image_path)) {
+                    Storage::disk('r2')->delete($photo->image_path);
+                }
+            }
+
+            if ($galleryAlbum->cover_image && Storage::disk('r2')->exists($galleryAlbum->cover_image)) {
+                Storage::disk('r2')->delete($galleryAlbum->cover_image);
+            }
+
+            $galleryAlbum->delete();
+        });
+
+        return response()->json(['message' => 'Gallery album deleted.']);
     }
 
-    public function archive(GalleryAlbum $galleryAlbum): JsonResponse
+    public function addPhotos(Request $request, GalleryAlbum $galleryAlbum): JsonResponse
     {
-        Gate::authorize('gallery.publish');
-        $this->galleryPublisher->archive($this->actor(), $galleryAlbum);
+        Gate::authorize('gallery.author');
 
-        return response()->json(["message" => 'Gallery album archived. Its editorial history has been retained.']);
+        $request->validate([
+            'images' => ['required_without:image', 'array', 'min:1'],
+            'images.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:8192'],
+            'image' => ['required_without:images', 'file', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:8192'],
+            'alt' => ['nullable', 'string', 'max:255'],
+            'caption' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $files = $request->hasFile('images')
+            ? $request->file('images')
+            : [$request->file('image')];
+
+        $alt = trim((string) $request->input('alt', ''));
+        $caption = trim((string) $request->input('caption', ''));
+
+        $created = DB::transaction(function () use ($galleryAlbum, $files, $alt, $caption): array {
+            $nextOrder = ((int) $galleryAlbum->photos()->max('sort_order')) + 1;
+            if ($galleryAlbum->photos()->count() === 0) {
+                $nextOrder = 0;
+            }
+
+            $items = [];
+            foreach ($files as $file) {
+                $path = $file->store('gallery/photos', 'r2');
+                $items[] = $galleryAlbum->photos()->create([
+                    'image_path' => $path,
+                    'alt' => $alt !== '' ? $alt : $galleryAlbum->title,
+                    'caption' => $caption !== '' ? $caption : null,
+                    'sort_order' => $nextOrder++,
+                ]);
+            }
+
+            return $items;
+        });
+
+        return response()->json([
+            'message' => count($created) === 1 ? 'Photo added to album.' : count($created).' photos added to album.',
+            'photos' => array_map(fn (GalleryPhoto $p): array => $this->serializePhoto($p), $created),
+        ], 201);
     }
 
-    public function restore(GalleryAlbum $galleryAlbum): JsonResponse
+    public function updatePhoto(Request $request, GalleryAlbum $galleryAlbum, GalleryPhoto $photo): JsonResponse
     {
-        Gate::authorize('gallery.publish');
-        $this->galleryPublisher->restore($this->actor(), $galleryAlbum);
+        Gate::authorize('gallery.author');
+        abort_unless($photo->album_id === $galleryAlbum->id, 404);
 
-        return response()->json(["message" => 'Gallery album restored as a private draft.']);
+        $data = $request->validate([
+            'alt' => ['nullable', 'string', 'max:255'],
+            'caption' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $photo->update([
+            'alt' => array_key_exists('alt', $data) ? trim((string) $data['alt']) : $photo->alt,
+            'caption' => array_key_exists('caption', $data)
+                ? (trim((string) $data['caption']) !== '' ? trim((string) $data['caption']) : null)
+                : $photo->caption,
+        ]);
+
+        return response()->json([
+            'message' => 'Photo updated.',
+            'photo' => $this->serializePhoto($photo->fresh()),
+        ]);
+    }
+
+    public function removePhoto(GalleryAlbum $galleryAlbum, GalleryPhoto $photo): JsonResponse
+    {
+        Gate::authorize('gallery.author');
+        abort_unless($photo->album_id === $galleryAlbum->id, 404);
+
+        DB::transaction(function () use ($galleryAlbum, $photo): void {
+            if ($photo->image_path && Storage::disk('r2')->exists($photo->image_path)) {
+                Storage::disk('r2')->delete($photo->image_path);
+            }
+            $photo->delete();
+
+            $remaining = $galleryAlbum->photos()->orderBy('sort_order')->orderBy('id')->get();
+            foreach ($remaining as $index => $item) {
+                if ($item->sort_order !== $index) {
+                    $item->update(['sort_order' => $index]);
+                }
+            }
+        });
+
+        return response()->json(['message' => 'Photo removed from album.']);
+    }
+
+    public function reorderPhotos(Request $request, GalleryAlbum $galleryAlbum): JsonResponse
+    {
+        Gate::authorize('gallery.author');
+
+        $validated = $request->validate([
+            'photo_ids' => ['required', 'array', 'min:1'],
+            'photo_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $photoIds = array_map('intval', $validated['photo_ids']);
+
+        DB::transaction(function () use ($galleryAlbum, $photoIds): void {
+            $currentIds = $galleryAlbum->photos()->pluck('id')->map('intval')->sort()->values()->all();
+            $requestedIds = collect($photoIds)->sort()->values()->all();
+            abort_unless($currentIds === $requestedIds, 422, 'Photo order must include every photo in this album exactly once.');
+
+            foreach ($photoIds as $order => $photoId) {
+                GalleryPhoto::query()
+                    ->where('album_id', $galleryAlbum->id)
+                    ->whereKey($photoId)
+                    ->update(['sort_order' => $order]);
+            }
+        });
+
+        return response()->json(['message' => 'Photo order saved.']);
     }
 
     public function feature(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
-        $this->galleryPublisher->setFeatured($this->actor(), $galleryAlbum);
+        abort_unless($galleryAlbum->is_active, 422, 'Only an active album can be featured on the homepage.');
+        Setting::set(GalleryVisibility::FEATURED_SETTING, (string) $galleryAlbum->id);
 
-        return response()->json(["message" => 'This is now the optional Gallery preview on the homepage.']);
+        return response()->json(['message' => 'Album featured on the homepage.']);
     }
 
     public function unfeature(GalleryAlbum $galleryAlbum): JsonResponse
     {
         Gate::authorize('gallery.publish');
-        $this->galleryPublisher->setFeatured($this->actor(), null);
+        Setting::set(GalleryVisibility::FEATURED_SETTING, null);
 
-        return response()->json(["message" => 'The homepage no longer has a featured Gallery preview.']);
+        return response()->json(['message' => 'Homepage featured album removed.']);
     }
 
-    private function formView(GalleryAlbum $album, GalleryAlbumRevision $revision): JsonResponse
+    // -------------------------------------------------------------------------
+    // Categories
+    // -------------------------------------------------------------------------
+
+    public function categories(): JsonResponse
     {
-        $revision->loadMissing(['cover.asset', 'photos.asset']);
+        $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
 
         return response()->json([
-            'album' => $album,
-            'revision' => $revision,
-            'assets' => MediaAsset::query()
-                ->where('status', 'published')
-                ->whereNull('archived_at')
-                ->where('public_disk', 'media_derivatives')
-                ->whereNotNull('public_path')
-                ->where('public_path', '!=', '')
-                ->whereNull('consent_withdrawn_at')
-                ->whereIn('consent_state', ['not_required', 'confirmed'])
-                ->where(function ($query): void {
-                    $query->whereNotNull('default_alt_text')->where('default_alt_text', '!=', '')
-                        ->orWhere('is_decorative', true);
-                })
-                ->orderByDesc('published_at')
+            'categories' => GalleryCategory::query()
+                ->withCount('albums')
+                ->orderBy('id')
                 ->get(),
-            'states' => GalleryAlbum::PUBLICATION_STATES,
-            'revisionStates' => GalleryAlbumRevision::WORKFLOW_STATES,
         ]);
     }
 
+    public function storeCategory(Request $request): JsonResponse
+    {
+        Gate::authorize('gallery.author');
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:120', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $slug = $this->uniqueCategorySlug($data['slug'] ?? $data['name']);
+
+        $category = GalleryCategory::create([
+            'name' => trim($data['name']),
+            'slug' => $slug,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
+        ]);
+
+        return response()->json([
+            'message' => 'Category created.',
+            'category' => $category,
+        ], 201);
+    }
+
+    public function updateCategory(Request $request, GalleryCategory $category): JsonResponse
+    {
+        Gate::authorize('gallery.author');
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:120', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $slug = $this->uniqueCategorySlug($data['slug'] ?? $data['name'], $category);
+
+        $category->update([
+            'name' => trim($data['name']),
+            'slug' => $slug,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $category->is_active,
+        ]);
+
+        return response()->json([
+            'message' => 'Category updated.',
+            'category' => $category->fresh(),
+        ]);
+    }
+
+    public function destroyCategory(GalleryCategory $category): JsonResponse
+    {
+        Gate::authorize('gallery.publish');
+        $category->delete();
+
+        return response()->json(['message' => 'Category deleted.']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
     /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validatedAlbum(Request $request, ?GalleryAlbum $album = null): array
     {
         return $request->validate([
-            'title' => ['required', 'string', 'max:180'],
-            'slug' => ['nullable', 'string', 'max:180', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
-            'summary' => ['required', 'string', 'max:500'],
-            'album_date' => ['required', 'date_format:Y-m-d'],
-            'category' => ['nullable', 'string', 'max:80'],
+            'title' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255', 'regex:/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'category_id' => ['nullable', 'integer', Rule::exists('gallery_categories', 'id')],
+            'event_date' => ['nullable', 'date_format:Y-m-d'],
+            'is_active' => ['nullable', 'boolean'],
+            'cover_image' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:8192'],
         ]);
     }
 
-    /** @param array<string, mixed> $data
-     * @return array<string, mixed>
-     */
-    private function albumData(array $data): array
+    private function uniqueAlbumSlug(string $source, ?GalleryAlbum $ignore = null): string
     {
-        return [
-            'title' => $data['title'],
-            'slug' => $data['slug'] ?? null,
-            'summary' => $data['summary'],
-            'album_date' => $data['album_date'],
-            'category' => $data['category'] ?? null,
-        ];
+        $base = Str::limit(Str::slug(trim($source)), 240, '') ?: 'album';
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            GalleryAlbum::query()
+                ->where('slug', $slug)
+                ->when($ignore !== null, fn ($q) => $q->whereKeyNot($ignore->id))
+                ->exists()
+        ) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
+    }
+
+    private function uniqueCategorySlug(string $source, ?GalleryCategory $ignore = null): string
+    {
+        $base = Str::limit(Str::slug(trim($source)), 110, '') ?: 'category';
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            GalleryCategory::query()
+                ->where('slug', $slug)
+                ->when($ignore !== null, fn ($q) => $q->whereKeyNot($ignore->id))
+                ->exists()
+        ) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
     }
 
     /** @return array<string, mixed> */
-    private function photoMetadata(Request $request, bool $requiresAsset, string $assetField = 'media_asset_id'): array
+    private function serializeAlbum(GalleryAlbum $album, bool $includePhotos = false): array
     {
-        $data = $request->validate([
-            $assetField => [$requiresAsset ? 'required' : 'nullable', 'integer', Rule::exists('media_assets', 'id')],
-            'caption' => ['nullable', 'string', 'max:10000'],
-            'alt_text' => ['nullable', 'string', 'max:255'],
-            'focal_x' => ['nullable', 'numeric', 'between:0,100'],
-            'focal_y' => ['nullable', 'numeric', 'between:0,100'],
-        ]);
+        $coverPath = trim((string) $album->cover_image);
+        if ($coverPath === '' && $album->relationLoaded('firstPhoto') && $album->firstPhoto !== null) {
+            $coverPath = trim((string) $album->firstPhoto->image_path);
+        }
 
-        foreach (['focal_x', 'focal_y'] as $coordinate) {
-            if ($requiresAsset) {
-                $data[$coordinate] ??= 50;
-            } elseif ($data[$coordinate] === null) {
-                unset($data[$coordinate]);
-            }
+        $data = [
+            'id' => $album->id,
+            'category_id' => $album->category_id,
+            'category' => $album->category,
+            'title' => $album->title,
+            'slug' => $album->slug,
+            'description' => $album->description,
+            'cover_image' => $album->cover_image,
+            'cover_url' => $coverPath !== '' ? Storage::disk('r2')->url($coverPath) : null,
+            'event_date' => $album->event_date?->format('Y-m-d'),
+            'is_active' => (bool) $album->is_active,
+            'photos_count' => (int) ($album->photos_count ?? ($album->relationLoaded('photos') ? $album->photos->count() : 0)),
+            'created_at' => $album->created_at?->toIso8601String(),
+            'updated_at' => $album->updated_at?->toIso8601String(),
+        ];
+
+        if ($includePhotos && $album->relationLoaded('photos')) {
+            $data['photos'] = $album->photos->map(fn (GalleryPhoto $p): array => $this->serializePhoto($p))->values()->all();
         }
 
         return $data;
     }
 
-    private function activeRevision(GalleryAlbum $album): GalleryAlbumRevision
+    /** @return array<string, mixed> */
+    private function serializePhoto(GalleryPhoto $photo): array
     {
-        $active = $album->revisions
-            ->filter(fn (GalleryAlbumRevision $revision): bool => in_array($revision->workflow_state, ['draft', 'review', 'approved', 'scheduled'], true))
-            ->sortByDesc('revision_number')
-            ->first();
+        $path = trim((string) $photo->image_path);
 
-        if ($active instanceof GalleryAlbumRevision) {
-            return $active;
-        }
-
-        return $album->publishedRevision ?? new GalleryAlbumRevision(['workflow_state' => 'draft']);
-    }
-
-    private function ensureRevisionBelongsToAlbum(GalleryAlbum $album, GalleryAlbumRevision $revision): void
-    {
-        abort_unless($revision->gallery_album_id === $album->id, 404);
-    }
-
-    private function ensurePhotoBelongsToRevision(GalleryAlbumRevision $revision, MediaAttachment $photo): void
-    {
-        abort_unless(
-            $photo->attachable_type === 'gallery-album-revision'
-            && $photo->attachable_id === $revision->id
-            && $photo->placement === 'photo',
-            404,
-        );
+        return [
+            'id' => $photo->id,
+            'album_id' => $photo->album_id,
+            'alt' => $photo->alt,
+            'caption' => $photo->caption,
+            'image_path' => $photo->image_path,
+            'url' => $path !== '' ? Storage::disk('r2')->url($path) : null,
+            'sort_order' => (int) $photo->sort_order,
+        ];
     }
 
     /** @param array<int, string> $abilities */
@@ -353,13 +457,5 @@ class GalleryAlbumController extends Controller
         }
 
         abort(403);
-    }
-
-    private function actor(): User
-    {
-        $user = auth()->user();
-        abort_unless($user instanceof User, 403);
-
-        return $user;
     }
 }

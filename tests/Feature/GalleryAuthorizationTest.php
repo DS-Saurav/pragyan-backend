@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\GalleryAlbum;
-use App\Models\GalleryAlbumRevision;
 use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class GalleryAuthorizationTest extends TestCase
@@ -15,38 +15,26 @@ class GalleryAuthorizationTest extends TestCase
 
     public function test_guests_and_staff_without_gallery_capabilities_cannot_open_gallery_administration(): void
     {
-        $this->get(route('admin.gallery.index'))->assertRedirect(route('login'));
+        $this->getJson('/api/admin/gallery')->assertUnauthorized();
 
-        $this->actingAs($this->userWithPermissions([]))
-            ->get(route('admin.gallery.index'))
-            ->assertForbidden();
-
+        Sanctum::actingAs($this->userWithPermissions([]));
+        $this->getJson('/api/admin/gallery')->assertForbidden();
     }
 
-    public function test_gallery_author_can_create_a_private_album_but_cannot_review_or_publish_it(): void
+    public function test_gallery_author_can_create_album_but_cannot_feature_or_delete_it(): void
     {
         $author = $this->userWithPermissions(['gallery.author']);
+        Sanctum::actingAs($author);
 
-        $this->actingAs($author)
-            ->get(route('admin.gallery.create'))
-            ->assertOk();
-
-        $this->actingAs($author)
-            ->post(route('admin.gallery.store'), $this->albumPayload())
-            ->assertRedirect();
+        $this->postJson('/api/admin/gallery', $this->albumPayload())
+            ->assertCreated();
 
         $album = GalleryAlbum::query()->sole();
-        $revision = $album->revisions()->sole();
 
-        $this->assertSame('draft', $album->publication_state);
-        $this->assertSame('draft', $revision->workflow_state);
-
-        $this->actingAs($author)
-            ->patch(route('admin.gallery.approve', [$album, $revision]))
+        $this->patchJson("/api/admin/gallery/{$album->id}/feature")
             ->assertForbidden();
 
-        $this->actingAs($author)
-            ->patch(route('admin.gallery.publish', [$album, $revision]))
+        $this->deleteJson("/api/admin/gallery/{$album->id}")
             ->assertForbidden();
     }
 
@@ -54,57 +42,25 @@ class GalleryAuthorizationTest extends TestCase
     {
         foreach (['gallery.review', 'gallery.publish'] as $permission) {
             $user = $this->userWithPermissions([$permission]);
+            Sanctum::actingAs($user);
 
-            $this->actingAs($user)
-                ->get(route('admin.gallery.index'))
-                ->assertOk();
+            $this->getJson('/api/admin/gallery')->assertOk();
 
-            $this->actingAs($user)
-                ->get(route('admin.gallery.create'))
+            $this->postJson('/api/admin/gallery', $this->albumPayload())
                 ->assertForbidden();
         }
-
     }
 
-    public function test_gallery_preview_and_unrelated_internal_records_remain_protected(): void
-    {
-        $album = GalleryAlbum::factory()->create();
-        $revision = GalleryAlbumRevision::factory()->create(['gallery_album_id' => $album->id]);
-        $author = $this->userWithPermissions(['gallery.author']);
-        $unprivileged = $this->userWithPermissions([], 'librarian');
-
-        $this->get(route('admin.gallery.preview', [$album, $revision]))
-            ->assertRedirect(route('login'));
-
-        $this->actingAs($unprivileged)
-            ->get(route('admin.gallery.preview', [$album, $revision]))
-            ->assertForbidden();
-
-        $this->actingAs($author)
-            ->get(route('admin.gallery.preview', [$album, $revision]))
-            ->assertOk();
-
-        $this->actingAs($author)
-            ->get(route('admin.admissions.index'))
-            ->assertForbidden();
-
-        $this->actingAs($author)
-            ->get(route('admin.media.original', 1))
-            ->assertForbidden();
-
-    }
-
-    /** @return array<string, string> */
+    /** @return array<string, mixed> */
     private function albumPayload(): array
     {
         return [
             'title' => 'A learning celebration',
             'slug' => 'a-learning-celebration',
-            'summary' => 'A concise public description of this school moment.',
-            'album_date' => '2026-10-28',
-            'category' => 'Learning',
+            'description' => 'A concise public description of this school moment.',
+            'event_date' => '2026-10-28',
+            'is_active' => true,
         ];
-
     }
 
     /** @param array<int, string> $permissions */

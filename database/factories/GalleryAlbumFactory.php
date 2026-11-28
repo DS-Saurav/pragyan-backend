@@ -3,48 +3,29 @@
 namespace Database\Factories;
 
 use App\Models\GalleryAlbum;
-use App\Models\GalleryAlbumRevision;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<GalleryAlbum>
  */
 class GalleryAlbumFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = GalleryAlbum::class;
+
+    /** @return array<string, mixed> */
     public function definition(): array
     {
+        $title = fake()->sentence(3);
+
         return [
-            'slug' => fake()->unique()->slug(4),
-            'publication_state' => 'draft',
-            'published_revision_id' => null,
-            'scheduled_revision_id' => null,
-            'scheduled_for' => null,
-            'published_at' => null,
-            'withdrawn_at' => null,
-            'archived_at' => null,
+            'category_id' => null,
+            'title' => $title,
+            'slug' => Str::slug($title).'-'.fake()->unique()->numberBetween(100, 9999),
+            'description' => fake()->sentence(12),
+            'cover_image' => null,
+            'event_date' => fake()->date('Y-m-d'),
+            'is_active' => true,
         ];
-    }
-
-    public function published(): static
-    {
-        return $this->afterCreating(function (GalleryAlbum $album): void {
-            $revision = GalleryAlbumRevision::factory()->create([
-                'gallery_album_id' => $album->id,
-                'slug' => $album->slug,
-                'workflow_state' => 'published',
-                'published_at' => now('UTC'),
-            ]);
-
-            $album->update([
-                'publication_state' => 'published',
-                'published_revision_id' => $revision->id,
-                'published_at' => $revision->published_at,
-            ]);
-        });
     }
 }

@@ -79,10 +79,10 @@ final class PublicLocaleMetadata
 
     private function galleryAvailable(string $slug): bool
     {
-        $result = $this->gallery->findDisplayableSlug($slug);
+        $album = $this->gallery->findDisplayableBySlug($slug);
 
-        return $result['album'] instanceof GalleryAlbum
-            && $this->translations->contentRevision(PublicTranslationSource::GALLERY_ALBUM, $result['album']) !== null;
+        return $album instanceof GalleryAlbum
+            && $this->translations->contentRevision(PublicTranslationSource::GALLERY_ALBUM, $album) !== null;
     }
 
     private function noticeAvailable(string $slug): bool

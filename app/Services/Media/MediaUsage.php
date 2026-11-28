@@ -10,7 +10,6 @@ use App\Models\PublicTeamProfileRevision;
 use App\Models\SchoolEvent;
 use App\Models\Setting;
 use App\Models\User;
-use App\Services\Gallery\GalleryPublisher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -24,7 +23,6 @@ class MediaUsage
         'homepage-hero' => Setting::class,
         'public-event' => SchoolEvent::class,
         'news-story-revision' => 'App\\Models\\NewsStoryRevision',
-        'gallery-album-revision' => 'App\\Models\\GalleryAlbumRevision',
         'public-page-revision' => PublicPageRevision::class,
         'public-team-profile-revision' => PublicTeamProfileRevision::class,
     ];
@@ -180,67 +178,7 @@ class MediaUsage
      */
     public function withdrawCurrentPublicGalleryAlbums(MediaAsset $asset, User $actor): array
     {
-        $revisionIds = MediaAttachment::query()
-            ->where('media_asset_id', $asset->getKey())
-            ->where('attachable_type', 'gallery-album-revision')
-            ->lockForUpdate()
-            ->pluck('attachable_id')
-            ->map(static fn (mixed $id): int => (int) $id)
-            ->unique()
-            ->values();
-
-        if ($revisionIds->isEmpty() || ! class_exists('App\\Models\\GalleryAlbum')) {
-            return [];
-        }
-
-        $albumClass = 'App\\Models\\GalleryAlbum';
-        $revisionIdList = $revisionIds->all();
-        $albums = $albumClass::query()
-            ->where(function ($query) use ($revisionIdList): void {
-                $query->whereIn('published_revision_id', $revisionIdList)
-                    ->orWhereIn('scheduled_revision_id', $revisionIdList);
-            })
-            ->lockForUpdate()
-            ->get();
-        $changedAlbumIds = [];
-        $withdrawnAlbumIds = [];
-
-        foreach ($albums as $album) {
-            $usesPublishedRevision = $album->getAttribute('published_revision_id') !== null
-                && in_array((int) $album->getAttribute('published_revision_id'), $revisionIdList, true);
-            $usesScheduledRevision = $album->getAttribute('scheduled_revision_id') !== null
-                && in_array((int) $album->getAttribute('scheduled_revision_id'), $revisionIdList, true);
-
-            if ($usesPublishedRevision && $album->getAttribute('publication_state') === 'published') {
-                $this->cancelScheduledGalleryRevision($album);
-                $album->forceFill([
-                    'publication_state' => 'withdrawn',
-                    'withdrawn_at' => now(),
-                    'updated_by' => $actor->id,
-                ])->save();
-                $withdrawnAlbumIds[] = (int) $album->getKey();
-                $changedAlbumIds[] = (int) $album->getKey();
-
-                continue;
-            }
-
-            if ($usesScheduledRevision) {
-                $this->cancelScheduledGalleryRevision($album);
-                $album->updated_by = $actor->id;
-                $album->save();
-                $changedAlbumIds[] = (int) $album->getKey();
-            }
-        }
-
-        if ($changedAlbumIds !== []) {
-            $featured = Setting::get('website_featured_gallery_album_id');
-            if (in_array((string) $featured, array_map('strval', $withdrawnAlbumIds), true)) {
-                Setting::set('website_featured_gallery_album_id', null);
-            }
-            GalleryPublisher::invalidatePublicCache();
-        }
-
-        return $changedAlbumIds;
+        return [];
     }
 
     public function requireUnusedByPublishedContent(MediaAsset $asset): void

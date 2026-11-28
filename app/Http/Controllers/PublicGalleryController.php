@@ -2,69 +2,86 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\JsonResponse;
-
+use App\Http\Resources\PublicGalleryAlbumResource;
 use App\Models\GalleryAlbum;
+use App\Models\GalleryCategory;
 use App\Services\Gallery\GalleryVisibility;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class PublicGalleryController extends Controller
 {
     public function __construct(private GalleryVisibility $galleryVisibility) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        return $this->listingResponse($request, 9, false);
+    }
+
+    public function archive(Request $request): JsonResponse
+    {
+        return $this->listingResponse($request, 24, true);
+    }
+
+    public function show(Request $request, string $slug): JsonResponse
+    {
+        $album = $this->galleryVisibility->findDisplayableBySlug($slug);
+        abort_unless($album instanceof GalleryAlbum, 404);
+
         return response()->json([
-            'albums' => $this->galleryVisibility->displayableQuery()
-                ->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])
-                ->orderByDesc('published_at')
-                ->orderByDesc('id')
-                ->paginate(9)
-                ->withQueryString(),
-            'isArchive' => false,
+            'album' => (new PublicGalleryAlbumResource($album))->resolve($request),
         ]);
     }
 
-    public function archive(): JsonResponse
+    private function listingResponse(Request $request, int $perPage, bool $isArchive): JsonResponse
     {
-        return response()->json([
-            'albums' => $this->galleryVisibility->displayableQuery()
-                ->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])
-                ->orderByDesc('published_at')
-                ->orderByDesc('id')
-                ->paginate(24)
-                ->withQueryString(),
-            'isArchive' => true,
+        $validated = $request->validate([
+            'category' => ['nullable', 'string', 'max:120'],
         ]);
-    }
+        $category = isset($validated['category']) ? trim((string) $validated['category']) : '';
 
-    public function show(string $slug): JsonResponse
-    {
-        $result = $this->galleryVisibility->findDisplayableSlug($slug);
+        $baseQuery = $this->galleryVisibility->displayableQuery();
 
-        if ($result['redirect'] instanceof GalleryAlbum) {
-            return response()->json(["ok" => true]);
+        $categories = Schema::hasTable('gallery_categories')
+            ? GalleryCategory::query()
+                ->where('is_active', true)
+                ->whereHas('albums', fn ($query) => $query->where('is_active', true))
+                ->orderBy('id')
+                ->get(['id', 'name', 'slug'])
+            : collect();
+
+        if ($category !== '') {
+            $baseQuery->whereHas('category', function ($query) use ($category): void {
+                $query->where('is_active', true)
+                    ->where(function ($sub) use ($category): void {
+                        $sub->where('slug', $category)->orWhere('name', $category);
+                    });
+            });
         }
 
-        abort_unless($result['album'] instanceof GalleryAlbum, 404);
-        $album = $result['album']->load([
-            'publishedRevision.cover.asset',
-            'publishedRevision.photos.asset',
-        ]);
-        $revision = $album->publishedRevision;
-        abort_unless($revision !== null, 404);
-
-        $cover = $revision->cover;
-        $coverUrl = $cover?->asset?->public_path !== null
-            ? route('media.published', $cover->media_asset_id)
-            : null;
+        $paginator = $baseQuery
+            ->with(['category', 'firstPhoto'])
+            ->withCount('photos')
+            ->orderByDesc('event_date')
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
         return response()->json([
-            'album' => $album,
-            'revision' => $revision,
-            'cover' => $cover,
-            'coverUrl' => $coverUrl,
+            'albums' => [
+                'data' => $paginator->getCollection()
+                    ->map(fn (GalleryAlbum $album): array => (new PublicGalleryAlbumResource($album))->resolve($request))
+                    ->values()
+                    ->all(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'categories' => $categories->pluck('name')->values(),
+            'categoryItems' => $categories,
+            'activeCategory' => $category !== '' ? $category : null,
+            'isArchive' => $isArchive,
         ]);
     }
 }

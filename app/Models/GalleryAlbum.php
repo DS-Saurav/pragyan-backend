@@ -7,20 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GalleryAlbum extends Model
 {
     /** @use HasFactory<GalleryAlbumFactory> */
     use HasFactory;
-
-    public const PUBLICATION_STATES = [
-        'draft' => 'Draft',
-        'review' => 'In review',
-        'scheduled' => 'Scheduled',
-        'published' => 'Published',
-        'withdrawn' => 'Withdrawn',
-        'archived' => 'Archived',
-    ];
 
     protected $guarded = ['id'];
 
@@ -28,45 +20,27 @@ class GalleryAlbum extends Model
     protected function casts(): array
     {
         return [
-            'scheduled_for' => 'datetime',
-            'published_at' => 'datetime',
-            'withdrawn_at' => 'datetime',
-            'archived_at' => 'datetime',
+            'category_id' => 'integer',
+            'event_date' => 'date',
+            'is_active' => 'boolean',
         ];
     }
 
-    public function revisions(): HasMany
+    public function category(): BelongsTo
     {
-        return $this->hasMany(GalleryAlbumRevision::class)->orderBy('revision_number')->orderBy('id');
+        return $this->belongsTo(GalleryCategory::class, 'category_id');
     }
 
-    public function publishedRevision(): BelongsTo
+    public function photos(): HasMany
     {
-        return $this->belongsTo(GalleryAlbumRevision::class, 'published_revision_id');
+        return $this->hasMany(GalleryPhoto::class, 'album_id')
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 
-    public function scheduledRevision(): BelongsTo
+    public function firstPhoto(): HasOne
     {
-        return $this->belongsTo(GalleryAlbumRevision::class, 'scheduled_revision_id');
-    }
-
-    public function formerSlugs(): HasMany
-    {
-        return $this->hasMany(GalleryAlbumSlug::class);
-    }
-
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function editor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function publisher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'published_by');
+        return $this->hasOne(GalleryPhoto::class, 'album_id')
+            ->ofMany(['sort_order' => 'min', 'id' => 'min']);
     }
 }

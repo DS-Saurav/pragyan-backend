@@ -148,7 +148,7 @@ final class PublicTranslationSource
 
         return match ($type) {
             self::ADMISSION_CYCLE => trim((string) $source->getAttribute('label')) ?: 'Admissions cycle #'.$source->getKey(),
-            self::GALLERY_ALBUM => trim((string) $this->publishedAttribute($source, 'title')) ?: 'Gallery album #'.$source->getKey(),
+            self::GALLERY_ALBUM => trim((string) $source->getAttribute('title')) ?: 'Gallery album #'.$source->getKey(),
             self::NEWS_STORY => trim((string) $this->publishedAttribute($source, 'title')) ?: 'News story #'.$source->getKey(),
             self::NOTICE => trim((string) $this->publishedAttribute($source, 'title')) ?: 'Notice #'.$source->getKey(),
             self::PUBLIC_PAGE => match ($source->getAttribute('type')) {
@@ -299,9 +299,12 @@ final class PublicTranslationSource
             self::NEWS_STORY => $this->revisionSnapshot($source, [
                 'title', 'summary', 'body_markdown', 'category', 'public_attribution',
             ]),
-            self::GALLERY_ALBUM => $this->revisionSnapshot($source, [
-                'title', 'summary', 'album_date', 'category',
-            ]),
+            self::GALLERY_ALBUM => [
+                'title' => $source->getAttribute('title'),
+                'summary' => $source->getAttribute('description'),
+                'album_date' => $source->getAttribute('event_date')?->format('Y-m-d'),
+                'category' => $source instanceof GalleryAlbum ? $source->category?->name : null,
+            ],
             self::NOTICE => $this->noticeSnapshot($source),
             self::PUBLIC_PAGE => $this->publicPageSnapshot($source),
             self::PUBLIC_TEAM_PROFILE => $this->revisionSnapshot($source, [

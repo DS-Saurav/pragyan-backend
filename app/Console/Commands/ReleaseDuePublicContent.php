@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Gallery\GalleryPublisher;
 use App\Services\News\NewsPublisher;
 use App\Services\Notices\NoticePublisher;
 use App\Services\PublicPages\PublicPagePublisher;
@@ -30,7 +29,6 @@ class ReleaseDuePublicContent extends Command
      */
     public function handle(
         NewsPublisher $newsPublisher,
-        GalleryPublisher $galleryPublisher,
         NoticePublisher $noticePublisher,
         PublicPagePublisher $publicPagePublisher,
         PublicTeamProfilePublisher $publicTeamProfilePublisher,
@@ -52,9 +50,6 @@ class ReleaseDuePublicContent extends Command
 
             $this->releaseWorkflow('News', function () use ($newsPublisher, $now): void {
                 $newsPublisher->releaseDue($now);
-            }, $failures);
-            $this->releaseWorkflow('Gallery', function () use ($galleryPublisher, $now): void {
-                $galleryPublisher->releaseDue($now);
             }, $failures);
             $this->releaseWorkflow('Notices', function () use ($noticePublisher, $now): void {
                 $noticePublisher->releaseDue($now);

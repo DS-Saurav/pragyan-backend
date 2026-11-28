@@ -2,7 +2,6 @@
 
 namespace App\Services\Media;
 
-use App\Models\GalleryAlbumRevision;
 use App\Models\MediaAsset;
 use App\Models\MediaAttachment;
 use App\Models\NewsStoryRevision;
@@ -740,7 +739,6 @@ class MediaLibrary
         return DB::transaction(function () use ($actor, $asset) {
             $locked = MediaAsset::whereKey($asset->id)->lockForUpdate()->firstOrFail();
             app(MediaUsage::class)->withdrawCurrentPublicNewsStories($locked, $actor);
-            app(MediaUsage::class)->withdrawCurrentPublicGalleryAlbums($locked, $actor);
             $locked->fill([
                 'consent_state' => 'withdrawn',
                 'consent_withdrawn_by' => $actor->id,

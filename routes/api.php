@@ -188,22 +188,23 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
 
         // Public Gallery
         Route::prefix('admin/gallery')->group(function (): void {
+            Route::get('/categories', [GalleryAlbumController::class, 'categories']);
+            Route::post('/categories', [GalleryAlbumController::class, 'storeCategory']);
+            Route::put('/categories/{category}', [GalleryAlbumController::class, 'updateCategory'])->whereNumber('category');
+            Route::delete('/categories/{category}', [GalleryAlbumController::class, 'destroyCategory'])->whereNumber('category');
+
             Route::get('/', [GalleryAlbumController::class, 'index']);
+            Route::get('/{galleryAlbum}', [GalleryAlbumController::class, 'show'])->whereNumber('galleryAlbum');
             Route::post('/', [GalleryAlbumController::class, 'store']);
-            Route::put('/{galleryAlbum}', [GalleryAlbumController::class, 'update']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/cover', [GalleryAlbumController::class, 'setCover']);
-            Route::post('/{galleryAlbum}/revisions/{revision}/photos', [GalleryAlbumController::class, 'addPhoto']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/photos/reorder', [GalleryAlbumController::class, 'reorderPhotos']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/photos/{photo}', [GalleryAlbumController::class, 'updatePhoto']);
-            Route::delete('/{galleryAlbum}/revisions/{revision}/photos/{photo}', [GalleryAlbumController::class, 'removePhoto']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/submit', [GalleryAlbumController::class, 'submit']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/approve', [GalleryAlbumController::class, 'approve']);
-            Route::patch('/{galleryAlbum}/revisions/{revision}/publish', [GalleryAlbumController::class, 'publish']);
-            Route::patch('/{galleryAlbum}/withdraw', [GalleryAlbumController::class, 'withdraw']);
-            Route::patch('/{galleryAlbum}/archive', [GalleryAlbumController::class, 'archive']);
-            Route::patch('/{galleryAlbum}/restore', [GalleryAlbumController::class, 'restore']);
-            Route::patch('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'feature']);
-            Route::delete('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'unfeature']);
+            Route::post('/{galleryAlbum}', [GalleryAlbumController::class, 'update'])->whereNumber('galleryAlbum');
+            Route::put('/{galleryAlbum}', [GalleryAlbumController::class, 'update'])->whereNumber('galleryAlbum');
+            Route::delete('/{galleryAlbum}', [GalleryAlbumController::class, 'destroy'])->whereNumber('galleryAlbum');
+            Route::post('/{galleryAlbum}/photos', [GalleryAlbumController::class, 'addPhotos'])->whereNumber('galleryAlbum');
+            Route::patch('/{galleryAlbum}/photos/reorder', [GalleryAlbumController::class, 'reorderPhotos'])->whereNumber('galleryAlbum');
+            Route::patch('/{galleryAlbum}/photos/{photo}', [GalleryAlbumController::class, 'updatePhoto'])->whereNumber(['galleryAlbum', 'photo']);
+            Route::delete('/{galleryAlbum}/photos/{photo}', [GalleryAlbumController::class, 'removePhoto'])->whereNumber(['galleryAlbum', 'photo']);
+            Route::patch('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'feature'])->whereNumber('galleryAlbum');
+            Route::delete('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'unfeature'])->whereNumber('galleryAlbum');
         });
 
         // Public Pages

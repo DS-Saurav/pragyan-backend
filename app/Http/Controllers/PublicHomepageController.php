@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 
 use App\Http\Controllers\Admin\WebsiteSettingsController;
+use App\Http\Resources\PublicGalleryAlbumResource;
 use App\Models\HeroSlide;
 use App\Models\PublicAcademicStage;
 use App\Models\PublicPage;
@@ -69,7 +70,11 @@ class PublicHomepageController extends Controller
             'homeIntro' => trim((string) Setting::get('website_home_intro')),
             'highlights' => WebsiteSettingsController::highlights(),
             'featuredStory' => $featuredStory?->load(['publishedRevision.cover.asset']),
-            'featuredAlbum' => $featuredAlbum?->load(['publishedRevision.cover.asset']),
+            'featuredAlbum' => $featuredAlbum !== null
+                ? (new PublicGalleryAlbumResource(
+                    $featuredAlbum->load(['category', 'firstPhoto'])->loadCount('photos'),
+                ))->resolve(request())
+                : null,
             'academicsPreview' => $this->academicsPreview($academicsRevision),
             'homeMetaDescription' => $this->homepageMetaDescription($identity, $academicsRevision),
         ]);

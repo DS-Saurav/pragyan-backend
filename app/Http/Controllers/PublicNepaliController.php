@@ -159,12 +159,8 @@ final class PublicNepaliController extends Controller
 
     public function galleryShow(string $slug): JsonResponse
     {
-        $result = $this->gallery->findDisplayableSlug($slug);
-        if ($result['redirect'] instanceof GalleryAlbum) {
-            return response()->json(["ok" => true]);
-        }
-        abort_unless($result['album'] instanceof GalleryAlbum, 404);
-        $source = $result['album'];
+        $source = $this->gallery->findDisplayableBySlug($slug);
+        abort_unless($source instanceof GalleryAlbum, 404);
         $revision = $this->translations->contentRevision(PublicTranslationSource::GALLERY_ALBUM, $source);
 
         return $revision === null
@@ -223,7 +219,7 @@ final class PublicNepaliController extends Controller
 
     private function galleryListing(bool $archive): JsonResponse
     {
-        $sources = $this->gallery->displayableQuery()->with(['publishedRevision.cover.asset', 'publishedRevision.photos.asset'])->orderByDesc('published_at')->orderByDesc('id')->get();
+        $sources = $this->gallery->displayableQuery()->with('category')->withCount('photos')->orderByDesc('event_date')->orderByDesc('id')->get();
 
         return $this->listing($this->translations->translated($sources, PublicTranslationSource::GALLERY_ALBUM), $archive ? __('public.gallery_archive') : __('public.gallery'), $archive ? route('public.gallery.archive') : route('public.gallery'), $archive);
     }

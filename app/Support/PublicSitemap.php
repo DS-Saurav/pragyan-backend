@@ -140,13 +140,13 @@ final class PublicSitemap
             }
         }
 
-        $albums = $this->galleryVisibility->displayableQuery()->orderByDesc('published_at')->orderByDesc('id')->get();
+        $albums = $this->galleryVisibility->displayableQuery()->orderByDesc('updated_at')->orderByDesc('id')->get();
         if ($albums->isNotEmpty()) {
-            $entries = [...$entries, ...$this->pair('/gallery', $this->lastModified($albums->first()?->published_at), $this->translations->hasContent(PublicTranslationSource::GALLERY_ALBUM))];
+            $entries = [...$entries, ...$this->pair('/gallery', $this->lastModified($albums->first()?->updated_at), $this->translations->hasContent(PublicTranslationSource::GALLERY_ALBUM))];
             foreach ($albums as $album) {
                 if (filled($album->slug)) {
                     $translation = $this->translations->contentRevision(PublicTranslationSource::GALLERY_ALBUM, $album);
-                    $entries = [...$entries, ...$this->pair('/gallery/'.$album->slug, $this->lastModified($album->published_at), $translation !== null, $translation?->published_at)];
+                    $entries = [...$entries, ...$this->pair('/gallery/'.$album->slug, $this->lastModified($album->updated_at), $translation !== null, $translation?->published_at)];
                 }
             }
         }
