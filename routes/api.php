@@ -58,6 +58,7 @@ use App\Http\Controllers\PublicHomepageController;
 use App\Http\Controllers\PublicNewsController;
 use App\Http\Controllers\PublicNoticeController;
 use App\Http\Controllers\PublicPageController;
+use App\Http\Controllers\PublicTeacherController;
 use App\Http\Controllers\TeamController;
 use App\Services\PublicTranslations\PublicTranslationSource;
 use Illuminate\Support\Facades\Route;
@@ -81,6 +82,8 @@ Route::prefix('public')->group(function (): void {
     Route::get('/notices/archive', [PublicNoticeController::class, 'archive']);
     Route::get('/notices/{slug}', [PublicNoticeController::class, 'show'])->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*');
     Route::get('/team', [TeamController::class, 'index']);
+    Route::get('/teachers', [PublicTeacherController::class, 'index']);
+    Route::get('/teachers/{slug}', [PublicTeacherController::class, 'show'])->where('slug', '[a-z0-9]+(?:-[a-z0-9]+)*');
     Route::get('/about', [PublicPageController::class, 'about']);
     Route::get('/academics', [PublicPageController::class, 'academics']);
     Route::get('/admissions', [PublicAdmissionsController::class, 'index']);
@@ -262,8 +265,6 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
 
         // Teachers
         Route::get('/admin/teachers/export-csv', [TeacherController::class, 'exportCsv']);
-        Route::post('/admin/teachers/{teacher}/assign', [TeacherController::class, 'assign']);
-        Route::delete('/admin/teachers/{teacher}/assignment/{assignmentId}', [TeacherController::class, 'removeAssignment']);
         Route::apiResource('/admin/teachers', TeacherController::class);
 
         // Assets

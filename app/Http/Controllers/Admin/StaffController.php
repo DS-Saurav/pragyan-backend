@@ -70,7 +70,7 @@ class StaffController extends Controller
             StaffMember::create([
                 'teacher_id' => $t->id,
                 'name' => trim(($t->first_name ?? '').' '.($t->last_name ?? '')) ?: 'Teacher #'.$t->id,
-                'designation' => $t->specialization ?: ($t->department ?: 'Teacher'),
+                'designation' => $t->specialization ?: ($t->qualification ?: 'Teacher'),
                 'type' => 'teaching',
                 'phone' => $t->phone ?? null,
                 'basic_salary' => 0,
