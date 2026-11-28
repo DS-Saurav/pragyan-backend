@@ -72,7 +72,7 @@ class PublicHomepageController extends Controller
             'featuredStory' => $featuredStory?->load(['publishedRevision.cover.asset']),
             'featuredAlbum' => $featuredAlbum !== null
                 ? (new PublicGalleryAlbumResource(
-                    $featuredAlbum->load(['category', 'firstPhoto'])->loadCount('photos'),
+                    $featuredAlbum->load(['category', 'coverPhoto', 'firstPhoto'])->loadCount('photos'),
                 ))->resolve(request())
                 : null,
             'academicsPreview' => $this->academicsPreview($academicsRevision),

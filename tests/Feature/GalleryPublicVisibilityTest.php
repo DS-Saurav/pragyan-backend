@@ -68,7 +68,7 @@ class GalleryPublicVisibilityTest extends TestCase
             'title' => $title,
             'slug' => $slug,
             'description' => 'A concise public summary of this school moment.',
-            'cover_image' => "gallery/covers/{$slug}.jpg",
+            'cover_image_id' => null,
             'event_date' => '2026-10-28',
             'is_active' => $isActive,
         ]);

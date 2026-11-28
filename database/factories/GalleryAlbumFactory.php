@@ -23,7 +23,7 @@ class GalleryAlbumFactory extends Factory
             'title' => $title,
             'slug' => Str::slug($title).'-'.fake()->unique()->numberBetween(100, 9999),
             'description' => fake()->sentence(12),
-            'cover_image' => null,
+            'cover_image_id' => null,
             'event_date' => fake()->date('Y-m-d'),
             'is_active' => true,
         ];

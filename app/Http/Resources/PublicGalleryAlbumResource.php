@@ -16,22 +16,20 @@ class PublicGalleryAlbumResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $coverPath = trim((string) $this->cover_image);
-        $fallbackPhoto = $coverPath === ''
-            ? ($this->relationLoaded('firstPhoto')
+        $coverPhoto = $this->relationLoaded('coverPhoto') ? $this->coverPhoto : null;
+        if ($coverPhoto === null && $this->cover_image_id !== null && $this->relationLoaded('photos')) {
+            $coverPhoto = $this->photos->firstWhere('id', $this->cover_image_id);
+        }
+        if ($coverPhoto === null) {
+            $coverPhoto = $this->relationLoaded('firstPhoto')
                 ? $this->firstPhoto
-                : ($this->relationLoaded('photos') ? $this->photos->first() : null))
-            : null;
+                : ($this->relationLoaded('photos') ? $this->photos->first() : null);
+        }
 
-        if ($coverPath !== '') {
+        if ($coverPhoto !== null && trim((string) $coverPhoto->image_path) !== '') {
             $cover = [
-                'url' => Storage::disk('r2')->url($coverPath),
-                'alt' => $this->title,
-            ];
-        } elseif ($fallbackPhoto !== null && trim((string) $fallbackPhoto->image_path) !== '') {
-            $cover = [
-                'url' => Storage::disk('r2')->url(trim((string) $fallbackPhoto->image_path)),
-                'alt' => trim((string) $fallbackPhoto->alt) !== '' ? $fallbackPhoto->alt : $this->title,
+                'url' => Storage::disk('r2')->url(trim((string) $coverPhoto->image_path)),
+                'alt' => trim((string) $coverPhoto->alt) !== '' ? $coverPhoto->alt : $this->title,
             ];
         } else {
             $cover = null;

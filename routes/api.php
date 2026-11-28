@@ -203,6 +203,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function (): void {
             Route::patch('/{galleryAlbum}/photos/reorder', [GalleryAlbumController::class, 'reorderPhotos'])->whereNumber('galleryAlbum');
             Route::patch('/{galleryAlbum}/photos/{photo}', [GalleryAlbumController::class, 'updatePhoto'])->whereNumber(['galleryAlbum', 'photo']);
             Route::delete('/{galleryAlbum}/photos/{photo}', [GalleryAlbumController::class, 'removePhoto'])->whereNumber(['galleryAlbum', 'photo']);
+            Route::patch('/{galleryAlbum}/cover/{photo}', [GalleryAlbumController::class, 'setCover'])->whereNumber(['galleryAlbum', 'photo']);
             Route::patch('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'feature'])->whereNumber('galleryAlbum');
             Route::delete('/{galleryAlbum}/feature', [GalleryAlbumController::class, 'unfeature'])->whereNumber('galleryAlbum');
         });

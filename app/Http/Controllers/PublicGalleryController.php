@@ -61,7 +61,7 @@ class PublicGalleryController extends Controller
         }
 
         $paginator = $baseQuery
-            ->with(['category', 'firstPhoto'])
+            ->with(['category', 'coverPhoto', 'firstPhoto'])
             ->withCount('photos')
             ->orderByDesc('event_date')
             ->orderByDesc('id')

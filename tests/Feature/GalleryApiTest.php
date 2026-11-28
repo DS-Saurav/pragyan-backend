@@ -40,7 +40,7 @@ class GalleryApiTest extends TestCase
         $data = collect($response->json('albums.data'))->keyBy('slug');
         $this->assertSame(2, $data[$science->slug]['photos_count']);
         $this->assertSame(1, $data[$sports->slug]['photos_count']);
-        $this->assertStringContainsString('gallery/covers/', $data[$science->slug]['cover']['url']);
+        $this->assertStringContainsString('gallery/photos/science-fair-2026-0.jpg', $data[$science->slug]['cover']['url']);
         $this->assertStringContainsString('gallery/photos/sports-day-2026-0.jpg', $data[$sports->slug]['cover']['url']);
         $this->assertArrayNotHasKey('photos', $data[$science->slug]);
 
@@ -104,13 +104,12 @@ class GalleryApiTest extends TestCase
             'name' => 'Arts & Crafts',
         ])->assertCreated()->json('category.id');
 
-        // Create album with cover upload
-        $albumId = $this->post('/api/admin/gallery', [
+        // Create album
+        $albumId = $this->postJson('/api/admin/gallery', [
             'title' => 'Art Exhibition',
             'description' => 'Student artworks from term two.',
             'category_id' => $catId,
             'event_date' => '2026-11-15',
-            'cover_image' => UploadedFile::fake()->image('cover.jpg', 800, 600),
         ])->assertCreated()->json('album.id');
 
         // Upload 2 photos
@@ -124,6 +123,11 @@ class GalleryApiTest extends TestCase
 
         $p1 = $uploadRes->json('photos.0.id');
         $p2 = $uploadRes->json('photos.1.id');
+
+        // Set second photo as cover_image_id
+        $this->patchJson("/api/admin/gallery/{$albumId}/cover/{$p2}")
+            ->assertOk()
+            ->assertJsonPath('album.cover_image_id', $p2);
 
         // Reorder photos
         $this->patchJson("/api/admin/gallery/{$albumId}/photos/reorder", [
@@ -152,19 +156,13 @@ class GalleryApiTest extends TestCase
         ?int $categoryId,
         array $captions,
         bool $isActive = true,
-        bool $withExplicitCover = true,
     ): GalleryAlbum {
-        $coverPath = $withExplicitCover ? "gallery/covers/{$slug}.jpg" : null;
-        if ($coverPath !== null) {
-            Storage::disk('r2')->put($coverPath, 'cover');
-        }
-
         $album = GalleryAlbum::create([
             'category_id' => $categoryId,
             'title' => $title,
             'slug' => $slug,
             'description' => 'Public description for '.$title,
-            'cover_image' => $coverPath,
+            'cover_image_id' => null,
             'event_date' => '2026-10-28',
             'is_active' => $isActive,
         ]);

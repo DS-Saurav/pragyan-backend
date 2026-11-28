@@ -32,7 +32,7 @@ class GalleryVisibility
         }
 
         return $this->displayableQuery()
-            ->with(['category', 'photos'])
+            ->with(['category', 'coverPhoto', 'photos'])
             ->withCount('photos')
             ->where('slug', $slug)
             ->first();
@@ -50,7 +50,7 @@ class GalleryVisibility
         }
 
         return $this->displayableQuery()
-            ->with('category')
+            ->with(['category', 'coverPhoto', 'firstPhoto'])
             ->withCount('photos')
             ->whereKey((int) $featuredId)
             ->first();

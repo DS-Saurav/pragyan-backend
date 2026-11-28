@@ -21,6 +21,7 @@ class GalleryAlbum extends Model
     {
         return [
             'category_id' => 'integer',
+            'cover_image_id' => 'integer',
             'event_date' => 'date',
             'is_active' => 'boolean',
         ];
@@ -29,6 +30,11 @@ class GalleryAlbum extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(GalleryCategory::class, 'category_id');
+    }
+
+    public function coverPhoto(): BelongsTo
+    {
+        return $this->belongsTo(GalleryPhoto::class, 'cover_image_id');
     }
 
     public function photos(): HasMany

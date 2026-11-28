@@ -23,7 +23,7 @@ class GalleryAlbumController extends Controller
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
 
         $albums = GalleryAlbum::query()
-            ->with(['category', 'firstPhoto'])
+            ->with(['category', 'coverPhoto', 'firstPhoto'])
             ->withCount('photos')
             ->orderByDesc('id')
             ->paginate(30)
@@ -39,7 +39,7 @@ class GalleryAlbumController extends Controller
     public function show(GalleryAlbum $galleryAlbum): JsonResponse
     {
         $this->authorizeAny(['gallery.author', 'gallery.review', 'gallery.publish']);
-        $galleryAlbum->load(['category', 'photos'])->loadCount('photos');
+        $galleryAlbum->load(['category', 'coverPhoto', 'photos'])->loadCount('photos');
 
         return response()->json([
             'album' => $this->serializeAlbum($galleryAlbum, true),
@@ -53,16 +53,13 @@ class GalleryAlbumController extends Controller
 
         $data = $this->validatedAlbum($request);
         $slug = $this->uniqueAlbumSlug($data['slug'] ?? $data['title']);
-        $coverPath = $request->hasFile('cover_image')
-            ? $request->file('cover_image')->store('gallery/covers', 'r2')
-            : null;
 
         $album = GalleryAlbum::create([
             'category_id' => $data['category_id'] ?? null,
             'title' => trim($data['title']),
             'slug' => $slug,
             'description' => $data['description'] ?? null,
-            'cover_image' => $coverPath,
+            'cover_image_id' => null,
             'event_date' => $data['event_date'] ?? null,
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
         ]);
@@ -82,21 +79,11 @@ class GalleryAlbumController extends Controller
         $data = $this->validatedAlbum($request, $galleryAlbum);
         $slug = $this->uniqueAlbumSlug($data['slug'] ?? $data['title'], $galleryAlbum);
 
-        $coverPath = $galleryAlbum->cover_image;
-        if ($request->hasFile('cover_image')) {
-            $newPath = $request->file('cover_image')->store('gallery/covers', 'r2');
-            if ($coverPath && Storage::disk('r2')->exists($coverPath)) {
-                Storage::disk('r2')->delete($coverPath);
-            }
-            $coverPath = $newPath;
-        }
-
         $galleryAlbum->update([
             'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : $galleryAlbum->category_id,
             'title' => trim($data['title']),
             'slug' => $slug,
             'description' => $data['description'] ?? null,
-            'cover_image' => $coverPath,
             'event_date' => $data['event_date'] ?? null,
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $galleryAlbum->is_active,
         ]);
@@ -105,7 +92,7 @@ class GalleryAlbumController extends Controller
             Setting::set(GalleryVisibility::FEATURED_SETTING, null);
         }
 
-        $galleryAlbum->load(['category', 'photos'])->loadCount('photos');
+        $galleryAlbum->load(['category', 'coverPhoto', 'photos'])->loadCount('photos');
 
         return response()->json([
             'message' => 'Gallery album updated.',
@@ -124,20 +111,34 @@ class GalleryAlbumController extends Controller
                 Setting::set(GalleryVisibility::FEATURED_SETTING, null);
             }
 
+            if ($galleryAlbum->cover_image_id !== null) {
+                $galleryAlbum->update(['cover_image_id' => null]);
+            }
+
             foreach ($galleryAlbum->photos as $photo) {
                 if ($photo->image_path && Storage::disk('r2')->exists($photo->image_path)) {
                     Storage::disk('r2')->delete($photo->image_path);
                 }
             }
 
-            if ($galleryAlbum->cover_image && Storage::disk('r2')->exists($galleryAlbum->cover_image)) {
-                Storage::disk('r2')->delete($galleryAlbum->cover_image);
-            }
-
             $galleryAlbum->delete();
         });
 
         return response()->json(['message' => 'Gallery album deleted.']);
+    }
+
+    public function setCover(GalleryAlbum $galleryAlbum, GalleryPhoto $photo): JsonResponse
+    {
+        Gate::authorize('gallery.author');
+        abort_unless($photo->album_id === $galleryAlbum->id, 404);
+
+        $galleryAlbum->update(['cover_image_id' => $photo->id]);
+        $galleryAlbum->load(['category', 'coverPhoto', 'photos'])->loadCount('photos');
+
+        return response()->json([
+            'message' => 'Album cover image updated.',
+            'album' => $this->serializeAlbum($galleryAlbum, true),
+        ]);
     }
 
     public function addPhotos(Request $request, GalleryAlbum $galleryAlbum): JsonResponse
@@ -360,7 +361,6 @@ class GalleryAlbumController extends Controller
             'category_id' => ['nullable', 'integer', Rule::exists('gallery_categories', 'id')],
             'event_date' => ['nullable', 'date_format:Y-m-d'],
             'is_active' => ['nullable', 'boolean'],
-            'cover_image' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:8192'],
         ]);
     }
 
@@ -403,10 +403,17 @@ class GalleryAlbumController extends Controller
     /** @return array<string, mixed> */
     private function serializeAlbum(GalleryAlbum $album, bool $includePhotos = false): array
     {
-        $coverPath = trim((string) $album->cover_image);
-        if ($coverPath === '' && $album->relationLoaded('firstPhoto') && $album->firstPhoto !== null) {
-            $coverPath = trim((string) $album->firstPhoto->image_path);
+        $coverPhoto = $album->relationLoaded('coverPhoto') ? $album->coverPhoto : null;
+        if ($coverPhoto === null && $album->cover_image_id !== null && $album->relationLoaded('photos')) {
+            $coverPhoto = $album->photos->firstWhere('id', $album->cover_image_id);
         }
+        if ($coverPhoto === null) {
+            $coverPhoto = $album->relationLoaded('firstPhoto')
+                ? $album->firstPhoto
+                : ($album->relationLoaded('photos') ? $album->photos->first() : null);
+        }
+
+        $coverPath = $coverPhoto !== null ? trim((string) $coverPhoto->image_path) : '';
 
         $data = [
             'id' => $album->id,
@@ -415,7 +422,7 @@ class GalleryAlbumController extends Controller
             'title' => $album->title,
             'slug' => $album->slug,
             'description' => $album->description,
-            'cover_image' => $album->cover_image,
+            'cover_image_id' => $album->cover_image_id,
             'cover_url' => $coverPath !== '' ? Storage::disk('r2')->url($coverPath) : null,
             'event_date' => $album->event_date?->format('Y-m-d'),
             'is_active' => (bool) $album->is_active,
